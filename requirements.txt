@@ -1,0 +1,12 @@
+pbr>2.1.0 # Apache 2.0
+# snap-helpers>=0.2.0 # LGPLv3
+# git+https://github.com/albertodonato/snap-helpers#egg=snap-helpers
+click>=8.1.3 # BSD
+rich # MIT
+juju # Apache 2
+
+# Used for communication with snapd socket
+requests # Apache 2
+requests-unixsocket # Apache 2
+
+pydantic # MIT
