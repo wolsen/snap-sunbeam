@@ -1,0 +1,48 @@
+bundle: kubernetes
+applications:
+
+  mysql:
+    charm: ch:mysql-k8s
+    channel: edge
+    scale: 1
+    trust: false
+
+  traefik:
+    charm: ch:traefik-k8s
+    channel: edge
+    scale: 1
+    trust: true
+
+  keystone:
+    charm: ch:keystone-k8s
+    channel: edge
+    scale: 1
+    trust: true
+    options:
+      admin-role: admin
+    storage:
+      fernet-keys: 5M
+      credential-keys: 5M
+    resources:
+      keystone-image: kolla/ubuntu-binary-keystone:xena
+
+  glance:
+    charm: ch:glance-k8s
+    channel: edge
+    scale: 1
+    trust: true
+    storage:
+      local-repository: 5G
+
+relations:
+- - mysql:database
+  - keystone:database
+- - traefik:ingress
+  - keystone:ingress-public
+
+- - keystone:identity-service
+  - glance:identity-service
+- - traefik:ingress
+  - glance:ingress-public
+- - mysql:database
+  - glance:database

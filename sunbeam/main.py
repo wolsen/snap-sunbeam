@@ -18,6 +18,8 @@ import logging
 
 from sunbeam import log
 from sunbeam.commands import init as init_cmds
+from sunbeam.commands import reset as reset_cmds
+from sunbeam.commands import status as status_cmds
 
 
 LOG = logging.getLogger()
@@ -42,6 +44,8 @@ def cli(ctx, quiet, verbose):
 def main():
     log.setup_root_logging()
     cli.add_command(init_cmds.init)
+    cli.add_command(reset_cmds.reset)
+    cli.add_command(status_cmds.status)
     cli()
 
 

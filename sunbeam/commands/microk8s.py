@@ -93,10 +93,11 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
                                      check=True)
             LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
                       process.stdout, process.stderr)
-            return ResultType.COMPLETED
+            return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception(f'Error enabling microk8s add-on {self._addon}')
-            return ResultType.FAILED
+            error_message = f'Error enabling microk8s add-on {self._addon}'
+            LOG.exception(error_message)
+            return Result(ResultType.FAILED, error_message)
 
 
 class EnableHighAvailability(BaseCoreMicroK8sEnableStep):
