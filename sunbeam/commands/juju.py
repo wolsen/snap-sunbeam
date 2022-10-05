@@ -15,9 +15,8 @@
 
 import json
 import logging
-import subprocess
-
 from pathlib import Path
+import subprocess
 
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
@@ -93,8 +92,8 @@ class BootstrapJujuStep(BaseStep):
         LOG.debug(f'Running command {" ".join(cmd)}')
         process = subprocess.run(cmd, capture_output=True, text=True,
                                  check=True)
-        LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                  process.stdout, process.stderr)
+        LOG.debug(f'Command finished. stdout={process.stdout}, '
+                  'stderr={process.stderr}')
 
         return json.loads(process.stdout.strip())
 
@@ -139,7 +138,7 @@ class BootstrapJujuStep(BaseStep):
             # influenced, but for now - we'll use the first controller.
             self.controller_name = existing_controllers[0]
             return True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error determining whether to skip the bootstrap '
                           'process. Defaulting to not skip.')
             return False
@@ -156,8 +155,8 @@ class BootstrapJujuStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             clouds = json.loads(process.stdout)
             if 'microk8s' not in clouds:
@@ -169,8 +168,8 @@ class BootstrapJujuStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
@@ -196,8 +195,8 @@ class CreateModelStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             models = json.loads(process.stdout.strip())
 
@@ -209,7 +208,7 @@ class CreateModelStep(BaseStep):
             # TODO(wolsen) how to tell which substrate the controller is
             #  capable of?
             return False
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error running juju models')
             return False
 
@@ -225,8 +224,8 @@ class CreateModelStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
@@ -250,13 +249,15 @@ class DeployBundleStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        cmd = ['/snap/bin/juju', 'status', '--model', self.model, '--format', 'json']
+        cmd = ['/snap/bin/juju', 'status', '--model', self.model,
+               '--format', 'json']
+
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             status = json.loads(process.stdout.strip())
 
@@ -264,7 +265,7 @@ class DeployBundleStep(BaseStep):
             # TOCHK: Do we need to skip this step???
 
             return False
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error verifying juju status')
             return False
 
@@ -278,16 +279,14 @@ class DeployBundleStep(BaseStep):
         try:
             cmd = ['/snap/bin/juju', 'deploy', '--model', self.model,
                    str(self.bundle)]
+
             if self.options:
                 cmd.extend(self.options)
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
-
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
@@ -315,8 +314,8 @@ class DestroyModelStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             models = json.loads(process.stdout.strip())
 
@@ -326,7 +325,7 @@ class DestroyModelStep(BaseStep):
                     return False
 
             return True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error running juju models')
             return False
 
@@ -344,8 +343,8 @@ class DestroyModelStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
@@ -372,8 +371,8 @@ class ModelStatusStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             models = json.loads(process.stdout.strip())
 
@@ -383,7 +382,7 @@ class ModelStatusStep(BaseStep):
                     return False
 
             return True
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error verifying juju status')
             return False
 
@@ -395,17 +394,20 @@ class ModelStatusStep(BaseStep):
         :return:
         """
         try:
-            cmd = ['/snap/bin/juju', 'status', '--model', self.model, '--format', 'json']
+            cmd = ['/snap/bin/juju', 'status', '--model', self.model,
+                   '--format', 'json']
+
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
 
             status = json.loads(process.stdout.strip())
             status_message = []
             for app, details in status.get('applications', {}).items():
-                app_status = details.get('application-status', {}).get('current', 'Unknown')
+                app_status = details.get('application-status',
+                                         {}).get('current', 'Unknown')
                 message = f'App {app} is in {app_status} state'
                 status_message.append(message)
 

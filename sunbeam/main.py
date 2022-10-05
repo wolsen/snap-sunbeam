@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import logging
 
-from sunbeam import log
+import click
+
 from sunbeam.commands import init as init_cmds
 from sunbeam.commands import reset as reset_cmds
 from sunbeam.commands import status as status_cmds
+from sunbeam import log
 
 
 LOG = logging.getLogger()
@@ -35,7 +36,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.pass_context
 def cli(ctx, quiet, verbose):
     """Description of what the sunbeam command does.
-    
+
     Yeah yeah yeah, I know this gets displayed on the commandline, but I don't
     yet know what to put here. I'll figure it out and then get back to it.
     """

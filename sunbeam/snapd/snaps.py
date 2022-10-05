@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 from enum import Enum
-from sunbeam.snapd import service
+from pathlib import Path
 import typing
 
-from datetime import datetime
-
-from pathlib import Path
 from pydantic import BaseModel
 from pydantic import Field
+
+from sunbeam.snapd import service
 
 
 class SnapAction(Enum):

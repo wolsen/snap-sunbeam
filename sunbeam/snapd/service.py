@@ -14,14 +14,13 @@
 # limitations under the License.
 
 from abc import ABC
-from requests.sessions import Session
-from requests.exceptions import HTTPError
-from requests_unixsocket import DEFAULT_SCHEME
 from http import HTTPStatus
-
 import logging
-
 from urllib.parse import quote
+
+from requests.exceptions import HTTPError
+from requests.sessions import Session
+from requests_unixsocket import DEFAULT_SCHEME
 
 
 LOG = logging.getLogger(__name__)
