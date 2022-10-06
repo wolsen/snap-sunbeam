@@ -79,7 +79,7 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             LOG.exception('Error determining ha-cluster add on status')
             return False
 
-    def run(self) -> ResultType:
+    def run(self) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate

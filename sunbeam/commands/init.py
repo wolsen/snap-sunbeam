@@ -17,16 +17,19 @@ import click
 import enum
 import logging
 
+from pathlib import Path
+
 from sunbeam.commands import juju
 from sunbeam.commands import microk8s
-from sunbeam.config import Env
 from sunbeam.jobs.common import ResultType
+
+from snaphelpers import Snap
 
 from rich.console import Console
 
 LOG = logging.getLogger(__name__)
 console = Console()
-_env = Env().get_env()
+snap = Snap()
 
 
 class Role(enum.Enum):
@@ -91,7 +94,7 @@ def init(auto: bool, role: str) -> None:
 
     # FIXME: Below params should be snap config options??
     model = 'sunbeam'
-    bundle = '{SNAP_COMMON}/controlplane.yaml'.format(**_env)
+    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
 
     plan = []
 

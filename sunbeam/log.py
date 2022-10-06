@@ -16,6 +16,9 @@
 import sys
 import logging
 
+from pathlib import Path
+from typing import Union
+
 from rich.logging import RichHandler
 
 
@@ -54,3 +57,19 @@ def setup_root_logging():
         handler.setFormatter(logging.Formatter('%(message)s', datefmt='[%X]'))
         logger.addHandler(handler)
 
+
+def setup_logging(logfile: Union[Path, str]) -> None:
+    """Sets up the logging for the specified logfile.
+
+    :param logfile: the file to record logging information to
+    :type logfile: Path or str
+    :return: None
+    """
+    # TODO(wolsen) Use a rotating log handler?
+    logging.basicConfig(
+        filename=str(logfile),
+        filemode="a",
+        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+        level=logging.DEBUG,
+    )

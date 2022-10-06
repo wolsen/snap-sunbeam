@@ -17,6 +17,8 @@ import json
 import logging
 import subprocess
 
+from pathlib import Path
+
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
@@ -236,7 +238,7 @@ class DeployBundleStep(BaseStep):
     """Creates the specified model name.
 
     """
-    def __init__(self, model: str, bundle: str):
+    def __init__(self, model: str, bundle: Path):
         super().__init__('Deploy bundle', 'Deploy bundle')
 
         self.model = model
@@ -274,7 +276,8 @@ class DeployBundleStep(BaseStep):
         :return:
         """
         try:
-            cmd = ['/snap/bin/juju', 'deploy', '--model', self.model, self.bundle]
+            cmd = ['/snap/bin/juju', 'deploy', '--model', self.model,
+                   str(self.bundle)]
             if self.options:
                 cmd.extend(self.options)
             LOG.debug(f'Running command {" ".join(cmd)}')
