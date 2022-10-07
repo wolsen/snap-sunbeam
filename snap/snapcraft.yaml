@@ -1,17 +1,17 @@
-name: sunbeam
+name: microstack
 base: core20
 summary: Dead simple OpenStack installation
 license: Apache-2.0
 description: |
-  Sunbeam aims to provide a scalable, simple to deploy OpenStack solution.
-version: yoga
+  Microstack aims to provide a scalable, simple to deploy OpenStack solution.
+version: xena
 
 confinement: strict
 grade: devel
 
 apps:
-  sunbeam:
-    command: bin/sunbeam
+  microstack:
+    command: bin/microstack
     plugs:
       - home
       - juju-client-observe
@@ -21,13 +21,20 @@ apps:
       - snapd-control
 
 parts:
-  sunbeam:
+  microstack:
     plugin: python
     source: .
     build-packages:
       - git
     requirements:
       - requirements.txt
+    override-build: |
+      snapcraftctl build
+      snap-helpers write-hooks
+
+  bundles:
+    plugin: dump
+    source: bundles/
 
   curl:
     plugin: nil
@@ -46,10 +53,10 @@ plugs:
 
   juju:
     interface: content
-    content: juju-bootstrap
+    content: juju
     # Note (wolsen): if we specify the default provider here, then snapd will
     # attempt to install it automatically and make sure that it is available.
     # This requires that the snap is available as a non-classic snap in order
     # to do this. We may need to bundle in the version of Juju.
-    #default-provider: juju
+    #default-provider: 3.0/beta
     target: $SNAP/juju

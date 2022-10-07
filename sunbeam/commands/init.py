@@ -17,14 +17,19 @@ import click
 import enum
 import logging
 
+from pathlib import Path
+
 from sunbeam.commands import juju
 from sunbeam.commands import microk8s
 from sunbeam.jobs.common import ResultType
+
+from snaphelpers import Snap
 
 from rich.console import Console
 
 LOG = logging.getLogger(__name__)
 console = Console()
+snap = Snap()
 
 
 class Role(enum.Enum):
@@ -87,6 +92,10 @@ def init(auto: bool, role: str) -> None:
 
     LOG.debug(f'Initialising: auto {auto}, role {role}')
 
+    # FIXME: Below params should be snap config options??
+    model = 'sunbeam'
+    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
+
     plan = []
 
     if node_role.is_control_node():
@@ -95,7 +104,10 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableHighAvailability())
         plan.append(microk8s.EnableDNS())
         plan.append(microk8s.EnableStorage())
+        plan.append(microk8s.EnableMetalLB())
         plan.append(juju.BootstrapJujuStep())
+        plan.append(juju.CreateModelStep(model))
+        plan.append(juju.DeployBundleStep(model, bundle))
 
     if node_role.is_compute_node():
         LOG.debug('This is where we would append steps for the compute node')
