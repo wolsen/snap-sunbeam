@@ -54,8 +54,8 @@ class EnsureMicrok8sInstalled(BaseStep):
 
 
 class BaseCoreMicroK8sEnableStep(BaseStep):
-    """Base add-on enablement step
-    """
+    """Base add-on enablement step"""
+
     def __init__(self, addon: str, *args):
         """Enables high availability for the microk8s cluster"""
         super().__init__(f'Enable microk8s {addon}',
@@ -74,10 +74,10 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
             return process.stdout.strip() == 'enabled'
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             LOG.exception('Error determining ha-cluster add on status')
             return False
 
@@ -95,10 +95,10 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
-            LOG.debug(f'Command finished. stdout="%s", stderr="%s"',
-                      process.stdout, process.stderr)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
             return Result(ResultType.COMPLETED)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             error_message = f'Error enabling microk8s add-on {self._addon}'
             LOG.exception(error_message)
             return Result(ResultType.FAILED, error_message)

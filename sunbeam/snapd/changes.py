@@ -13,15 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from sunbeam.snapd import service
 from datetime import datetime
 from datetime import timedelta
 from enum import Enum
+import time
+import typing
+
 from pydantic import BaseModel
 from pydantic import Field
 
-import time
-import typing
+from sunbeam.snapd import service
 
 
 class TimeoutException(Exception):

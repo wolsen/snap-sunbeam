@@ -13,19 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import enum
 import logging
-
 from pathlib import Path
+
+import click
+from rich.console import Console
+from snaphelpers import Snap
 
 from sunbeam.commands import juju
 from sunbeam.commands import microk8s
 from sunbeam.jobs.common import ResultType
-
-from snaphelpers import Snap
-
-from rich.console import Console
 
 LOG = logging.getLogger(__name__)
 console = Console()
@@ -67,6 +65,18 @@ class Role(enum.Enum):
         """
         return self.value != Role.CONTROL
 
+    def is_converged_node(self) -> bool:
+        """Returns True if the node requires control and compute services.
+
+        Control and Compute services are installed on nodes which are
+        designated as converged nodes. This helps determine the services
+        which are necessary to install.
+
+        :return: True if the node should run Control and Compute services,
+                 False otherwise
+        """
+        return self.value == Role.CONVERGED
+
 
 @click.command()
 @click.option('--auto', default=False, is_flag=True,
@@ -86,7 +96,7 @@ def init(auto: bool, role: str) -> None:
     plane services and compute node services on the same node in a converged
     architecture.
     """
-    context = click.get_current_context(silent=True)
+    # context = click.get_current_context(silent=True)
 
     node_role = Role[role.upper()]
 
@@ -146,4 +156,3 @@ def init(auto: bool, role: str) -> None:
 
 if __name__ == '__main__':
     init()
-

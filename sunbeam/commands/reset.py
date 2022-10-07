@@ -13,14 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import logging
 
-from sunbeam.commands import juju
+import click
+from rich.console import Console
+
 from sunbeam.commands.init import Role
+from sunbeam.commands import juju
 from sunbeam.jobs.common import ResultType
 
-from rich.console import Console
 
 LOG = logging.getLogger(__name__)
 console = Console()
@@ -39,9 +40,9 @@ def reset() -> None:
     Multi node:
     microk8s remove-node
     """
-    context = click.get_current_context(silent=True)
+    # context = click.get_current_context(silent=True)
 
-    #role = Role(config_get('config.cluster.role'))
+    # role = Role(config_get('config.cluster.role'))
     role = Role(3)
 
     # FIXME: Below params should be snap config options??

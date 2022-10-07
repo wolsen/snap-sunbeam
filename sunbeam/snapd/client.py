@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
+from pathlib import Path
 
+import click
 import requests
 import requests_unixsocket
 
-from pathlib import Path
-from sunbeam.snapd.snaps import SnapService
 from sunbeam.snapd.changes import ChangeService
 from sunbeam.snapd.changes import Status
+from sunbeam.snapd.snaps import SnapService
 
 
 class Client:

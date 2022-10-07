@@ -13,10 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import logging
-
 from pathlib import Path
+import sys
 from typing import Union
 
 from rich.logging import RichHandler

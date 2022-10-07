@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import logging
+
+import click
+from rich.console import Console
 
 from sunbeam.commands import juju
 from sunbeam.jobs.common import ResultType
 
-from rich.console import Console
 
 LOG = logging.getLogger(__name__)
 console = Console()
@@ -31,7 +32,7 @@ def status() -> None:
 
     Print status of the cluster.
     """
-    context = click.get_current_context(silent=True)
+    # context = click.get_current_context(silent=True)
 
     model = 'sunbeam'
 
@@ -69,4 +70,3 @@ def status() -> None:
             console.print(f'[green]{message}[/green]')
         else:
             console.print(f'[red]{message}[/red]')
-

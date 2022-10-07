@@ -65,7 +65,8 @@ class StepResult:
 
         :param result_type: the result of running a plan or step.
         :param kwargs: additional attributes to store in the step.
-        :raises: ValueError if a key in the kwargs already exists on the object.
+        :raises: ValueError if a key in the kwargs already exists on the
+                 object.
         """
         self.result_type = result_type
         for key, value in kwargs.items():
@@ -86,7 +87,7 @@ class BaseStep:
     """
 
     def __init__(self, name: str, description: str = ''):
-        """
+        """Initialise the BaseStep
 
         :param name: the name of the step
         """
