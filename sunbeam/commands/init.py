@@ -104,6 +104,7 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableHighAvailability())
         plan.append(microk8s.EnableDNS())
         plan.append(microk8s.EnableStorage())
+        plan.append(microk8s.EnableMetalLB())
         plan.append(juju.BootstrapJujuStep())
         plan.append(juju.CreateModelStep(model))
         plan.append(juju.DeployBundleStep(model, bundle))

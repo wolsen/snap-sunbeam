@@ -174,7 +174,7 @@ class BootstrapJujuStep(BaseStep):
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error bootstrapping juju')
+            LOG.exception(f'Error bootstrapping juju: {e.stderr}')
             return Result(ResultType.FAILED, e.stdout)
 
 

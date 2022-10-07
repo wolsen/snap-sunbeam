@@ -1,18 +1,20 @@
 bundle: kubernetes
 applications:
-
-  mysql:
-    charm: ch:mysql-k8s
-    channel: edge
-    scale: 1
-    trust: false
-
   traefik:
     charm: ch:traefik-k8s
     channel: edge
     scale: 1
     trust: true
-
+  mysql:
+    charm: ch:mysql-k8s
+    channel: edge
+    scale: 1
+    trust: false
+  rabbitmq:
+    charm: ch:sunbeam-rabbitmq-operator
+    channel: edge
+    scale: 1
+    trust: true
   keystone:
     charm: ch:keystone-k8s
     channel: edge
@@ -23,9 +25,6 @@ applications:
     storage:
       fernet-keys: 5M
       credential-keys: 5M
-    resources:
-      keystone-image: kolla/ubuntu-binary-keystone:xena
-
   glance:
     charm: ch:glance-k8s
     channel: edge
@@ -33,6 +32,54 @@ applications:
     trust: true
     storage:
       local-repository: 5G
+  nova:
+    charm: ch:nova-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  placement:
+    charm: ch:placement-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  neutron:
+    charm: ch:neutron-k8s
+    channel: edge
+    scale: 1
+    trust: true
+    options:
+      os-public-hostname:
+  ovn-central:
+    charm: ch:ovn-central-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  vault:
+    charm: ch:icey-vault-k8s
+    channel: stable
+    scale: 1
+    resources:
+      vault-image: vault
+  horizon:
+    charm: ch:horizon-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  cinder:
+    charm: ch:cinder-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  ovn-relay:
+    charm: ch:ovn-relay-k8s
+    channel: edge
+    scale: 1
+    trust: true
+  cinder-ceph:
+    charm: ch:cinder-ceph-k8s
+    channel: edge
+    scale: 1
+    trust: true
 
 relations:
 - - mysql:database
@@ -40,9 +87,71 @@ relations:
 - - traefik:ingress
   - keystone:ingress-public
 
+- - mysql:database
+  - glance:database
+- - rabbitmq:amqp
+  - glance:amqp
 - - keystone:identity-service
   - glance:identity-service
 - - traefik:ingress
   - glance:ingress-public
+
 - - mysql:database
-  - glance:database
+  - nova:database
+- - mysql:database
+  - nova:api-database
+- - mysql:database
+  - nova:cell-database
+- - rabbitmq:amqp
+  - nova:amqp
+- - keystone:identity-service
+  - nova:identity-service
+- - traefik:ingress
+  - nova:ingress-public
+
+- - mysql:database
+  - placement:database
+- - keystone:identity-service
+  - placement:identity-service
+- - traefik:ingress
+  - placement:ingress-public
+
+- - mysql:database
+  - neutron:database
+- - rabbitmq:amqp
+  - neutron:amqp
+- - keystone:identity-service
+  - neutron:identity-service
+- - traefik:ingress
+  - neutron:ingress-public
+- - vault:insecure-certificates
+  - neutron:certificates
+- - neutron:ovsdb-cms
+  - ovn-central:ovsdb-cms
+
+- - vault:insecure-certificates
+  - ovn-central:certificates
+
+- - mysql:database
+  - horizon:database
+- - keystone:identity-credentials
+  - horizon:cloud-credentials
+- - traefik:ingress
+  - horizon:ingress-public
+
+- - mysql:database
+  - cinder:database
+- - rabbitmq:amqp
+  - cinder:amqp
+- - keystone:identity-service
+  - cinder:identity-service
+- - traefik:ingress
+  - cinder:ingress-public
+
+- - vault:insecure-certificates
+  - ovn-relay:certificates
+
+- - mysql:database
+  - cinder-ceph:database
+- - rabbitmq:amqp
+  - cinder-ceph:amqp

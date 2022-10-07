@@ -56,11 +56,13 @@ class EnsureMicrok8sInstalled(BaseStep):
 class BaseCoreMicroK8sEnableStep(BaseStep):
     """Base add-on enablement step
     """
-    def __init__(self, addon: str):
+    def __init__(self, addon: str, *args):
         """Enables high availability for the microk8s cluster"""
         super().__init__(f'Enable microk8s {addon}',
                          f'Enabling microk8s {addon} add-on')
         self._addon = addon
+        if len(args):
+            self._args = [a for a in args]
 
     def is_skip(self):
         """Determines if the step should be skipped or not.
@@ -87,6 +89,8 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
         :return:
         """
         cmd = ['/snap/bin/microk8s', 'enable', self._addon]
+        if self._args:
+            cmd.extend(self._args)
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
@@ -117,3 +121,9 @@ class EnableStorage(BaseCoreMicroK8sEnableStep):
     """Enable host-based storage for microk8s"""
     def __init__(self):
         super().__init__('hostpath-storage')
+
+
+class EnableMetalLB(BaseCoreMicroK8sEnableStep):
+    """Enable metallb for microk8s"""
+    def __init__(self):
+        super().__init__('metallb', '10.20.20.1-10.20.20.2')

@@ -41,6 +41,23 @@ def install(snap: Snap) -> None:
     shutil.copytree(src, dst)
 
 
+def upgrade(snap: Snap) -> None:
+    """Runs the 'upgrade' hook for the snap.
+
+    The 'upgrade' hook will upgrade the various bundle information, etc. This
+    is
+
+    :param snap:
+    :return:
+    """
+    setup_logging(snap.paths.common / 'hooks.log')
+    LOG.debug('Running the upgrade hook...')
+    src = snap.paths.snap / 'etc' / 'bundles'
+    dst = snap.paths.common / 'etc' / 'bundles'
+    LOG.debug(f'Updating {dst} from {src}...')
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
 def configure(snap: Snap) -> None:
     """Runs the `configure` hook for the snap.
 
