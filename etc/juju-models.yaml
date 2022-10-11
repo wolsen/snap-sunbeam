@@ -6,6 +6,7 @@
 control-plane:
   cloud: microk8s
   model: openstack
+  deploy-timeout: 900
 
 data-plane:
   cloud:

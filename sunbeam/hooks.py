@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
+from pathlib import Path
 import shutil
 
 from snaphelpers import Snap
+from snaphelpers import SnapEnviron
 
 from sunbeam.log import setup_logging
 
@@ -39,6 +42,18 @@ def install(snap: Snap) -> None:
     dst = snap.paths.common / 'etc' / 'bundles'
     LOG.debug(f'Copying {src} to {dst}...')
     shutil.copytree(src, dst)
+
+    # Tweak to use juju for zaza by creating symlink
+    # of local juju share folder within snap.
+    # Can be resolved by bug: https://bugs.launchpad.net/juju/+bug/1990797
+    env = SnapEnviron()
+    real_home = Path(env['REAL_HOME'])
+    src = real_home / '.local' / 'share' / 'juju'
+    dst = snap.paths.user_data / '.local' / 'share'
+    os.makedirs(dst, exist_ok=True)
+    dst = dst / 'juju'
+    os.symlink(src, dst)
+    LOG.debug(f'Creating symlink pointing to {src} named {dst}')
 
 
 def upgrade(snap: Snap) -> None:

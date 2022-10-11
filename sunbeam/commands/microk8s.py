@@ -61,6 +61,7 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
         super().__init__(f'Enable microk8s {addon}',
                          f'Enabling microk8s {addon} add-on')
         self._addon = addon
+        self._args = None
         if len(args):
             self._args = [a for a in args]
 
@@ -98,9 +99,10 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             LOG.debug(f'Command finished. stdout={process.stdout}, '
                       'stderr={process.stderr}')
             return Result(ResultType.COMPLETED)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             error_message = f'Error enabling microk8s add-on {self._addon}'
             LOG.exception(error_message)
+            LOG.error(e.stderr)
             return Result(ResultType.FAILED, error_message)
 
 

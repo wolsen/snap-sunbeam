@@ -18,6 +18,8 @@ import logging
 from pathlib import Path
 import subprocess
 
+import zaza.model
+
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
@@ -237,12 +239,14 @@ class DeployBundleStep(BaseStep):
     """Creates the specified model name.
 
     """
-    def __init__(self, model: str, bundle: Path):
+    def __init__(self, model: str, bundle: Path, states: Path, timeout: int):
         super().__init__('Deploy bundle', 'Deploy bundle')
 
         self.model = model
         self.bundle = bundle
         self.options = ["--trust"]
+        self.states = states
+        self.timeout = timeout
 
     def is_skip(self):
         """Determines if the step should be skipped or not.
@@ -288,9 +292,19 @@ class DeployBundleStep(BaseStep):
             LOG.debug(f'Command finished. stdout={process.stdout}, '
                       'stderr={process.stderr}')
 
+            import asyncio
+            asyncio.run(
+                zaza.model.async_wait_for_application_states(
+                    model_name=self.model, states=self.states,
+                    timeout=self.timeout
+                )
+            )
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
             LOG.exception('Error deploying juju bundle')
+            return Result(ResultType.FAILED, e.stdout)
+        except zaza.model.ModelTimeout as e:
+            LOG.exception('Timedout during juju deploy')
             return Result(ResultType.FAILED, e.stdout)
 
 

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import enum
+import json
 import logging
 from pathlib import Path
 
@@ -106,6 +107,12 @@ def init(auto: bool, role: str) -> None:
     model = 'sunbeam'
     bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
 
+    states_path: Path = snap.paths.common / 'etc' / 'bundles' / 'states.json'
+    with open(states_path) as states_data:
+        states = json.load(states_data)
+
+    timeout = 900
+
     plan = []
 
     if node_role.is_control_node():
@@ -117,7 +124,11 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableMetalLB())
         plan.append(juju.BootstrapJujuStep())
         plan.append(juju.CreateModelStep(model))
-        plan.append(juju.DeployBundleStep(model, bundle))
+        plan.append(
+            juju.DeployBundleStep(
+                model, bundle, states=states, timeout=timeout
+            )
+        )
 
     if node_role.is_compute_node():
         LOG.debug('This is where we would append steps for the compute node')
