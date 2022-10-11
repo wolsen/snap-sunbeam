@@ -63,11 +63,12 @@ class BootstrapJujuStep(BaseStep):
     """Bootstraps the Juju controller.
 
     """
-    def __init__(self):
+    def __init__(self, cloud):
         super().__init__('Bootstrap Juju',
                          'Bootstrapping Juju into microk8s')
 
         self.controller_name = None
+        self.cloud = cloud
 
     def _juju_cmd(self, *args):
         """Runs the specified juju command line command
@@ -161,12 +162,12 @@ class BootstrapJujuStep(BaseStep):
                       'stderr={process.stderr}')
 
             clouds = json.loads(process.stdout)
-            if 'microk8s' not in clouds:
+            if self.cloud not in clouds:
                 LOG.critical('Could not find microk8s as a suitable cloud!')
                 return Result(ResultType.FAILED,
                               'Unable to bootstrap to microk8s')
 
-            cmd = ['/snap/bin/juju', 'bootstrap', 'microk8s']
+            cmd = ['/snap/bin/juju', 'bootstrap', self.cloud]
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)

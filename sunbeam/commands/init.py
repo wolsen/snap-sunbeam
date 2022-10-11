@@ -103,15 +103,14 @@ def init(auto: bool, role: str) -> None:
 
     LOG.debug(f'Initialising: auto {auto}, role {role}')
 
-    # FIXME: Below params should be snap config options??
-    model = 'sunbeam'
-    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
+    cloud = snap.config.get('control-plane.cloud')
+    model = snap.config.get('control-plane.model')
+    timeout = snap.config.get('control-plane.deploy-timeout')
 
+    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
     states_path: Path = snap.paths.common / 'etc' / 'bundles' / 'states.json'
     with open(states_path) as states_data:
         states = json.load(states_data)
-
-    timeout = 900
 
     plan = []
 
@@ -122,7 +121,7 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableDNS())
         plan.append(microk8s.EnableStorage())
         plan.append(microk8s.EnableMetalLB())
-        plan.append(juju.BootstrapJujuStep())
+        plan.append(juju.BootstrapJujuStep(cloud=cloud))
         plan.append(juju.CreateModelStep(model))
         plan.append(
             juju.DeployBundleStep(
