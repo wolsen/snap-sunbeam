@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import enum
-import json
 import logging
 from pathlib import Path
 
@@ -105,12 +104,7 @@ def init(auto: bool, role: str) -> None:
 
     cloud = snap.config.get('control-plane.cloud')
     model = snap.config.get('control-plane.model')
-    timeout = snap.config.get('control-plane.deploy-timeout')
-
     bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
-    states_path: Path = snap.paths.common / 'etc' / 'bundles' / 'states.json'
-    with open(states_path) as states_data:
-        states = json.load(states_data)
 
     plan = []
 
@@ -123,11 +117,7 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableMetalLB())
         plan.append(juju.BootstrapJujuStep(cloud=cloud))
         plan.append(juju.CreateModelStep(model))
-        plan.append(
-            juju.DeployBundleStep(
-                model, bundle, states=states, timeout=timeout
-            )
-        )
+        plan.append(juju.DeployBundleStep(model, bundle))
 
     if node_role.is_compute_node():
         LOG.debug('This is where we would append steps for the compute node')

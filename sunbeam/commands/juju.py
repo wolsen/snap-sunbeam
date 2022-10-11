@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 import subprocess
+from typing import Optional
 
 import zaza.model
 
@@ -27,8 +30,6 @@ from sunbeam.snapd.client import Client
 
 
 LOG = logging.getLogger(__name__)
-
-MODEL_NAME = 'sunbeam'
 
 
 class EnsureJujuInstalled(BaseStep):
@@ -240,14 +241,12 @@ class DeployBundleStep(BaseStep):
     """Creates the specified model name.
 
     """
-    def __init__(self, model: str, bundle: Path, states: Path, timeout: int):
+    def __init__(self, model: str, bundle: Path):
         super().__init__('Deploy bundle', 'Deploy bundle')
 
         self.model = model
         self.bundle = bundle
         self.options = ["--trust"]
-        self.states = states
-        self.timeout = timeout
 
     def is_skip(self):
         """Determines if the step should be skipped or not.
@@ -293,19 +292,9 @@ class DeployBundleStep(BaseStep):
             LOG.debug(f'Command finished. stdout={process.stdout}, '
                       'stderr={process.stderr}')
 
-            import asyncio
-            asyncio.run(
-                zaza.model.async_wait_for_application_states(
-                    model_name=self.model, states=self.states,
-                    timeout=self.timeout
-                )
-            )
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
             LOG.exception('Error deploying juju bundle')
-            return Result(ResultType.FAILED, e.stdout)
-        except zaza.model.ModelTimeout as e:
-            LOG.exception('Timedout during juju deploy')
             return Result(ResultType.FAILED, e.stdout)
 
 
@@ -371,10 +360,13 @@ class ModelStatusStep(BaseStep):
     """Get the status of the specified model name.
 
     """
-    def __init__(self, model: str):
+    def __init__(self, model: str, states: Optional[Path] = None,
+                 timeout: Optional[int] = None):
         super().__init__('Model status', 'Status of the apps in the model')
 
         self.model = model
+        self.states = states
+        self.timeout = timeout
 
     def is_skip(self):
         """Determines if the step should be skipped or not.
@@ -408,6 +400,38 @@ class ModelStatusStep(BaseStep):
 
         :return:
         """
+        try:
+            if self.states:
+
+                """
+                # Workaround for https://bugs.launchpad.net/juju/+bug/1990797
+                import os
+                snap_real_home = os.environ.get('SNAP_REAL_HOME')
+                home = os.environ.get('HOME')
+                src = Path(snap_real_home) / '.local' / 'share' / 'juju'
+                dst = Path(home) / '.local' / 'share'
+                os.makedirs(dst, exist_ok=True)
+                dst = dst / 'juju'
+                try:
+                    os.symlink(src, dst)
+                except FileExistsError:
+                    pass
+                LOG.debug('Symlink src {src} to dst {dst}')
+                """
+                home = os.environ.get('SNAP_REAL_HOME')
+                os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+
+                asyncio.run(
+                    zaza.model.async_wait_for_application_states(
+                        model_name=self.model, states=self.states,
+                        timeout=self.timeout
+                    )
+                )
+        except zaza.model.ModelTimeout:
+            LOG.warn('Timedout waiting for apps to be active')
+        except zaza.model.UnitError as e:
+            LOG.warn(e)
+
         try:
             cmd = ['/snap/bin/juju', 'status', '--model', self.model,
                    '--format', 'json']
