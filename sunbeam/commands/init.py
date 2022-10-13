@@ -102,8 +102,8 @@ def init(auto: bool, role: str) -> None:
 
     LOG.debug(f'Initialising: auto {auto}, role {role}')
 
-    # FIXME: Below params should be snap config options??
-    model = 'sunbeam'
+    cloud = snap.config.get('control-plane.cloud')
+    model = snap.config.get('control-plane.model')
     bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
 
     plan = []
@@ -115,7 +115,7 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableDNS())
         plan.append(microk8s.EnableStorage())
         plan.append(microk8s.EnableMetalLB())
-        plan.append(juju.BootstrapJujuStep())
+        plan.append(juju.BootstrapJujuStep(cloud=cloud))
         plan.append(juju.CreateModelStep(model))
         plan.append(juju.DeployBundleStep(model, bundle))
 

@@ -65,18 +65,8 @@ applications:
     channel: edge
     scale: 1
     trust: true
-  cinder:
-    charm: ch:cinder-k8s
-    channel: edge
-    scale: 1
-    trust: true
   ovn-relay:
     charm: ch:ovn-relay-k8s
-    channel: edge
-    scale: 1
-    trust: true
-  cinder-ceph:
-    charm: ch:cinder-ceph-k8s
     channel: edge
     scale: 1
     trust: true
@@ -139,19 +129,5 @@ relations:
 - - traefik:ingress
   - horizon:ingress-public
 
-- - mysql:database
-  - cinder:database
-- - rabbitmq:amqp
-  - cinder:amqp
-- - keystone:identity-service
-  - cinder:identity-service
-- - traefik:ingress
-  - cinder:ingress-public
-
 - - vault:insecure-certificates
   - ovn-relay:certificates
-
-- - mysql:database
-  - cinder-ceph:database
-- - rabbitmq:amqp
-  - cinder-ceph:amqp

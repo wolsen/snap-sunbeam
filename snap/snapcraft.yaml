@@ -48,7 +48,7 @@ plugs:
     # Note (wolsen): if we specify the default provider here, then snapd will
     # attempt to install it and make sure that it is available. I'm not sure
     # that we want this always (think compute-only node).
-    default-provider: microk8s
+    # default-provider: microk8s
     target: $SNAP_DATA/microk8s
 
   juju:

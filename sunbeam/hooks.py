@@ -20,6 +20,24 @@ from sunbeam.log import setup_logging
 
 
 LOG = logging.getLogger(__name__)
+DEFAULT_CONFIG = {
+    'control-plane.cloud': 'microk8s',
+    'control-plane.model': 'openstack',
+}
+
+
+def _update_default_config(snap: Snap) -> None:
+    """Add any missing default configuration keys.
+
+    :param snap: the snap reference
+    :type snap: Snap
+    :return: None
+    """
+    option_keys = set([k.split(".")[0] for k in DEFAULT_CONFIG.keys()])
+    current_options = snap.config.get_options(*option_keys)
+    for option, default in DEFAULT_CONFIG.items():
+        if option not in current_options:
+            snap.config.set({option: default})
 
 
 def install(snap: Snap) -> None:
@@ -39,6 +57,9 @@ def install(snap: Snap) -> None:
     dst = snap.paths.common / 'etc' / 'bundles'
     LOG.debug(f'Copying {src} to {dst}...')
     shutil.copytree(src, dst)
+
+    logging.info(f"Setting default config: {DEFAULT_CONFIG}")
+    snap.config.set(DEFAULT_CONFIG)
 
 
 def upgrade(snap: Snap) -> None:
@@ -70,3 +91,6 @@ def configure(snap: Snap) -> None:
     :return: None
     """
     setup_logging(snap.paths.common / 'hooks.log')
+    logging.info("Running configure hook")
+
+    _update_default_config(snap)

@@ -13,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 import subprocess
+from typing import Optional
+
+import zaza.model
 
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
@@ -25,8 +30,6 @@ from sunbeam.snapd.client import Client
 
 
 LOG = logging.getLogger(__name__)
-
-MODEL_NAME = 'sunbeam'
 
 
 class EnsureJujuInstalled(BaseStep):
@@ -61,11 +64,12 @@ class BootstrapJujuStep(BaseStep):
     """Bootstraps the Juju controller.
 
     """
-    def __init__(self):
+    def __init__(self, cloud):
         super().__init__('Bootstrap Juju',
                          'Bootstrapping Juju into microk8s')
 
         self.controller_name = None
+        self.cloud = cloud
 
     def _juju_cmd(self, *args):
         """Runs the specified juju command line command
@@ -159,12 +163,12 @@ class BootstrapJujuStep(BaseStep):
                       'stderr={process.stderr}')
 
             clouds = json.loads(process.stdout)
-            if 'microk8s' not in clouds:
+            if self.cloud not in clouds:
                 LOG.critical('Could not find microk8s as a suitable cloud!')
                 return Result(ResultType.FAILED,
                               'Unable to bootstrap to microk8s')
 
-            cmd = ['/snap/bin/juju', 'bootstrap', 'microk8s']
+            cmd = ['/snap/bin/juju', 'bootstrap', self.cloud]
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True,
                                      check=True)
@@ -356,10 +360,13 @@ class ModelStatusStep(BaseStep):
     """Get the status of the specified model name.
 
     """
-    def __init__(self, model: str):
+    def __init__(self, model: str, states: Optional[Path] = None,
+                 timeout: Optional[int] = None):
         super().__init__('Model status', 'Status of the apps in the model')
 
         self.model = model
+        self.states = states
+        self.timeout = timeout
 
     def is_skip(self):
         """Determines if the step should be skipped or not.
@@ -393,6 +400,38 @@ class ModelStatusStep(BaseStep):
 
         :return:
         """
+        try:
+            if self.states:
+
+                """
+                # Workaround for https://bugs.launchpad.net/juju/+bug/1990797
+                import os
+                snap_real_home = os.environ.get('SNAP_REAL_HOME')
+                home = os.environ.get('HOME')
+                src = Path(snap_real_home) / '.local' / 'share' / 'juju'
+                dst = Path(home) / '.local' / 'share'
+                os.makedirs(dst, exist_ok=True)
+                dst = dst / 'juju'
+                try:
+                    os.symlink(src, dst)
+                except FileExistsError:
+                    pass
+                LOG.debug('Symlink src {src} to dst {dst}')
+                """
+                home = os.environ.get('SNAP_REAL_HOME')
+                os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+
+                asyncio.run(
+                    zaza.model.async_wait_for_application_states(
+                        model_name=self.model, states=self.states,
+                        timeout=self.timeout
+                    )
+                )
+        except zaza.model.ModelTimeout:
+            LOG.warn('Timedout waiting for apps to be active')
+        except zaza.model.UnitError as e:
+            LOG.warn(e)
+
         try:
             cmd = ['/snap/bin/juju', 'status', '--model', self.model,
                    '--format', 'json']
