@@ -94,17 +94,14 @@ class BaseStep:
         self.name = name
         self.description = description
 
-    def get_prompts(self) -> typing.Iterable[str]:
-        """Returns any prompts that require input by the user.
+    def prompt(self, console: 'rich.console.Console' = None) -> None:
+        """Determines if the step can take input from the user.
 
         Prompts are used by Steps to gather the necessary input prior to
-        running the step. Each of the prompts may be used to seek input
-        from a user if the current context allows.
-
-        :return: an iterable of Prompts to prompt the user with
-        :rtype: Iterable[Prompt]
+        running the step. Steps should not expect that the prompt will be
+        available and should provide a reasonable default where possible.
         """
-        return []
+        pass
 
     def is_skip(self):
         """Determines if the step should be skipped or not.

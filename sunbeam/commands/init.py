@@ -125,6 +125,10 @@ def init(auto: bool, role: str) -> None:
     for step in plan:
         LOG.debug(f'Starting step {step.name}')
         message = f'{step.description} ... '
+
+        if not auto:
+            step.prompt(console)
+
         with console.status(f'{step.description} ... '):
             if step.is_skip():
                 LOG.debug(f'Skipping step {step.name}')

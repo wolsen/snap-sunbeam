@@ -15,6 +15,7 @@
 
 import logging
 import subprocess
+import typing
 
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
@@ -133,6 +134,23 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
     """Enable metallb for microk8s"""
     def __init__(self):
         super().__init__('metallb', '10.20.20.1-10.20.20.2')
+
+    def prompt(
+            self,
+            console: typing.Optional['rich.console.Console'] = None
+    ) -> None:
+        """Prompt the user for which IP ranges to configure.
+
+        Prompts the user to determine which IP ranges need to be configured.
+
+        :param console: the console to prompt on
+        :type console: rich.console.Console (Optional)
+        """
+        from rich.prompt import Prompt
+        network = Prompt.ask("Which network range should be used for control "
+                             "plane services: ", default='10.20.20.1/29',
+                             console=console)
+        self._args = [network]
 
 
 class EnableAccessToUser(BaseStep):
