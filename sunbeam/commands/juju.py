@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 from typing import Optional
 
-import zaza.model
+#import zaza.model
 
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
@@ -259,6 +259,7 @@ class DeployBundleStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
+
         cmd = ['/snap/bin/juju', 'status', '--model', self.model,
                '--format', 'json']
 
@@ -288,24 +289,40 @@ class DeployBundleStep(BaseStep):
 
         :return:
         """
+        home = os.environ.get('SNAP_REAL_HOME')
+        os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+
+        asyncio.get_event_loop().run_until_complete(self._run())
+        return Result(ResultType.COMPLETED)
+
+    async def _run(self) -> Result:
+        """
+
+        :return:
+        """
+        from juju.controller import Controller
+        controller = Controller()
+        await controller.connect()
+
         try:
-            cmd = ['/snap/bin/juju', 'deploy', '--model', self.model,
-                   str(self.bundle)]
+            # Get the reference to the specified model
+            model = await controller.get_model(self.model)
+            applications = await model.deploy(
+                f'local:{self.bundle}',
+                trust=True,
+            )
 
-            if self.options:
-                cmd.extend(self.options)
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            await model.block_until(
+                lambda: all(
+                    unit.workload_status == 'active'
+                    for application in applications
+                    for unit in application.units
+                )
+            )
+        finally:
+            await controller.disconnect()
 
-            return Result(ResultType.COMPLETED)
-        except subprocess.CalledProcessError as e:
-            LOG.exception('Error deploying juju bundle')
-            LOG.warning(e.stdout)
-            LOG.warning(e.stderr)
-            return Result(ResultType.FAILED, e.stdout)
+        return Result(ResultType.COMPLETED)
 
 
 class DestroyModelStep(BaseStep):
@@ -431,16 +448,19 @@ class ModelStatusStep(BaseStep):
                 home = os.environ.get('SNAP_REAL_HOME')
                 os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
 
-                asyncio.run(
-                    zaza.model.async_wait_for_application_states(
-                        model_name=self.model, states=self.states,
-                        timeout=self.timeout
-                    )
-                )
-        except zaza.model.ModelTimeout:
-            LOG.warn('Timedout waiting for apps to be active')
-        except zaza.model.UnitError as e:
-            LOG.warn(e)
+                # asyncio.run(
+                #     zaza.model.async_wait_for_application_states(
+                #         model_name=self.model, states=self.states,
+                #         timeout=self.timeout
+                #     )
+                # )
+        except:
+            LOG.warning('Error occurred')
+            LOG.exception('Exception raised')
+        # except zaza.model.ModelTimeout:
+        #     LOG.warn('Timedout waiting for apps to be active')
+        # except zaza.model.UnitError as e:
+        #     LOG.warn(e)
 
         try:
             cmd = ['/snap/bin/juju', 'status', '--model', self.model,

@@ -23,8 +23,9 @@ LOG = logging.getLogger(__name__)
 DEFAULT_CONFIG = {
     'control-plane.cloud': 'microk8s',
     'control-plane.model': 'openstack',
+    'node.role': 'CONVERGED',
     'snap.channel.juju': '3.0/beta',
-    'snap.channel.microk8s': '1.25-strict/stable'
+    'snap.channel.microk8s': '1.25-strict/stable',
 }
 
 
