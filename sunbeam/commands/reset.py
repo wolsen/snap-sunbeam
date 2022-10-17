@@ -35,7 +35,7 @@ def reset() -> None:
     Reset the node to the defaults.
     TODO:
     Single node:
-    microk8s destroy-model sunbeam
+    microk8s destroy-model openstack
     snap remove microk8s??
     snap remove juju??
     Multi node:
@@ -46,8 +46,7 @@ def reset() -> None:
     role = snap.config.get("node.role")
     node_role = Role[role.upper()]
 
-    # FIXME: Below params should be snap config options??
-    model = "sunbeam"
+    model = snap.config.get("control-plane.model")
 
     plan = []
 
