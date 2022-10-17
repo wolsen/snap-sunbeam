@@ -13,20 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
-from datetime import timedelta
-from enum import Enum
 import time
 import typing
+from datetime import datetime, timedelta
+from enum import Enum
 
-from pydantic import BaseModel
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from sunbeam.snapd import service
 
 
 class TimeoutException(Exception):
     """Raised to indicate an activity timedout while waiting for completion."""
+
     def __init__(self, message):
         self.message = message
 
@@ -38,6 +37,7 @@ class Status(Enum):
     https://github.com/snapcore/snapd/blob/
         a4da44a5c975f0d5c805327dd333fc1e4da0006e/overlord/state/change.go
     """
+
     DefaultStatus = "Default"
     DoStatus = "Do"
     DoingStatus = "Doing"
@@ -62,15 +62,14 @@ class Task(BaseModel):
     A task is associated with a change and includes information such as what
     the current status is, what the progress information is, etc.
     """
+
     id: int
     kind: str
     summary: str
     status: Status
     progress: Progress
-    spawn_time: typing.Optional[datetime] = \
-        Field(alias='spawn-time', default=None)
-    ready_time: typing.Optional[datetime] = \
-        Field(alias='ready-time', default=None)
+    spawn_time: typing.Optional[datetime] = Field(alias="spawn-time", default=None)
+    ready_time: typing.Optional[datetime] = Field(alias="ready-time", default=None)
 
 
 class Change(BaseModel):
@@ -80,20 +79,18 @@ class Change(BaseModel):
     were being performed by the changed, when the change was initiated, its
     status, etc.
     """
+
     id: int
     kind: str
     summary: str
     status: Status
     tasks: typing.List[Task]
     ready: bool
-    spawn_time: typing.Optional[datetime] = \
-        Field(alias='spawn-time', default=None)
+    spawn_time: typing.Optional[datetime] = Field(alias="spawn-time", default=None)
 
 
 class ChangeService(service.BaseService):
-    """Lists and manages snap changes
-
-    """
+    """Lists and manages snap changes"""
 
     def get_status(self, change: typing.Union[Change, int]) -> Change:
         """Retrieves the current status of a change/change id.
@@ -105,18 +102,19 @@ class ChangeService(service.BaseService):
         :rtype: Change
         """
         change_id = change.id if isinstance(change, Change) else change
-        change_data = self._get(f'/v2/changes/{change_id}')
-        change_data = change_data['result']
+        change_data = self._get(f"/v2/changes/{change_id}")
+        change_data = change_data["result"]
 
         return Change(**change_data)
 
     def wait_until(
-            self, change: typing.Union[Change, int],
-            status: typing.Optional[typing.Union[Status,
-                                                 typing.Iterable[Status]]] =
-            Status.DoneStatus,
-            timeout: typing.Optional[int] = 180,
-            sleep_time: typing.Optional[int] = 1
+        self,
+        change: typing.Union[Change, int],
+        status: typing.Optional[
+            typing.Union[Status, typing.Iterable[Status]]
+        ] = Status.DoneStatus,
+        timeout: typing.Optional[int] = 180,
+        sleep_time: typing.Optional[int] = 1,
     ) -> None:
         """Waits until the change is in the specified target status.
 
@@ -161,6 +159,8 @@ class ChangeService(service.BaseService):
         else:
             tgt_msg = status[0]
 
-        raise TimeoutException(f'Timed out after {timeout} seconds waiting '
-                               f'for change {change_id} to reach '
-                               f'{tgt_msg}')
+        raise TimeoutException(
+            f"Timed out after {timeout} seconds waiting "
+            f"for change {change_id} to reach "
+            f"{tgt_msg}"
+        )

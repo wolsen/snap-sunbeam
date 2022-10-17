@@ -55,14 +55,14 @@ def parse_version(version: str) -> VersionInfo:
     except ValueError:
         # Microk8s prefixes its version info with a 'v'. Let's strip it and get
         # rid of it.
-        if version[0] == 'v':
+        if version[0] == "v":
             return VersionInfo.parse(version[1:])
 
         # Juju uses 3.0 instead of 3.0.0 for major releases, so attempt to
         # convert it into a 3.0.0 (and include any pre-release information).
-        if version.count('.') == 1:
-            parts = version.split('-')
-            new_version = f'{parts[0]}.0-{parts[1]}'
+        if version.count(".") == 1:
+            parts = version.split("-")
+            new_version = f"{parts[0]}.0-{parts[1]}"
             return VersionInfo.parse(new_version)
 
         # Not a known condition, let's just re-raise.

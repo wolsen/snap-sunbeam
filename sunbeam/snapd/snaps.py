@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import typing
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-import typing
 
-from pydantic import BaseModel
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from sunbeam.snapd import service
 
@@ -27,19 +26,20 @@ from sunbeam.snapd import service
 class SnapAction(Enum):
     """Actions to take on a snap"""
 
-    Install = 'install'
-    Refresh = 'refresh'
-    Remove = 'remove'
-    Revert = 'revert'
-    Enable = 'enable'
-    Disable = 'disable'
-    Switch = 'switch'
+    Install = "install"
+    Refresh = "refresh"
+    Remove = "remove"
+    Revert = "revert"
+    Enable = "enable"
+    Disable = "disable"
+    Switch = "switch"
 
 
 class SnapStatus(Enum):
     """Status of the snap"""
-    Installed = 'installed'
-    Active = 'active'
+
+    Installed = "installed"
+    Active = "active"
 
 
 class App(BaseModel):
@@ -52,6 +52,7 @@ class Snap(BaseModel):
 
     A snap has several properties about it, and this only capture some of them.
     """
+
     name: str
     apps: typing.List[App]
     channel: str
@@ -61,9 +62,8 @@ class Snap(BaseModel):
     devmode: bool
     icon: typing.Optional[str]
     id: str
-    install_date: typing.Optional[datetime] = \
-        Field(alias='spawn-time', default=None)
-    installed_size: int = Field(alias='installed-size', default=None)
+    install_date: typing.Optional[datetime] = Field(alias="spawn-time", default=None)
+    installed_size: int = Field(alias="installed-size", default=None)
     license: typing.Optional[str] = None
     private: bool
     resource: typing.Optional[str] = None
@@ -73,23 +73,22 @@ class Snap(BaseModel):
     trymode: typing.Optional[bool] = False
     type: str
     version: str
-    update_available: typing.Optional[int] = \
-        Field(alias='update-available', default=None)
+    update_available: typing.Optional[int] = Field(
+        alias="update-available", default=None
+    )
     broken: typing.Optional[str] = None
     jailmode: bool
-    mounted_from: Path = Field(alias='mounted-from', default=None)
+    mounted_from: Path = Field(alias="mounted-from", default=None)
     status: SnapStatus
-    tracking_channel: str = Field(alias='tracking-channel', default=None)
+    tracking_channel: str = Field(alias="tracking-channel", default=None)
 
 
 class SnapService(service.BaseService):
-    """Lists and manages installed snaps
+    """Lists and manages installed snaps"""
 
-    """
-
-    def get_installed_snaps(self,
-                            snaps: typing.Iterable[str] = None
-                            ) -> typing.List[Snap]:
+    def get_installed_snaps(
+        self, snaps: typing.Iterable[str] = None
+    ) -> typing.List[Snap]:
         """Returns a list of Installed Snaps
 
         :param snaps:
@@ -97,18 +96,17 @@ class SnapService(service.BaseService):
         """
         query = {}
         if snaps:
-            query = {'snaps': ','.join(snaps)}
+            query = {"snaps": ",".join(snaps)}
 
-        snaps = self._get('/v2/snaps', params=query)
+        snaps = self._get("/v2/snaps", params=query)
 
         installed = []
-        for result in snaps['result']:
+        for result in snaps["result"]:
             installed.append(Snap(**result))
 
         return installed
 
-    def install(self, name: str, channel: typing.Optional[str] = '',
-                **kwargs) -> int:
+    def install(self, name: str, channel: typing.Optional[str] = "", **kwargs) -> int:
         """Installs the specified snap from the default (or specified) channel.
 
         By default, the default channel of the snap is installed. This can be
@@ -157,19 +155,24 @@ class SnapService(service.BaseService):
         rtype: int
         """
         kwargs = {
-            'purge': purge,
+            "purge": purge,
         }
         return self._update_snap(SnapAction.Remove, name, **kwargs)
 
-    def _update_snap(self, action: SnapAction, name: str,
-                     channel: typing.Optional[str] = '', **kwargs) -> bool:
+    def _update_snap(
+        self,
+        action: SnapAction,
+        name: str,
+        channel: typing.Optional[str] = "",
+        **kwargs,
+    ) -> bool:
         data = {
-            'action': str(SnapAction.Install.value),
-            'channel': channel,
+            "action": str(SnapAction.Install.value),
+            "channel": channel,
         }
         data.update(kwargs)
 
-        response = self._post(f'/v2/snaps/{name}', json=data)
-        change_id = response['change']
+        response = self._post(f"/v2/snaps/{name}", json=data)
+        change_id = response["change"]
 
         return change_id

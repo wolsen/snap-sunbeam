@@ -158,3 +158,5 @@ cython_debug/
 
 # PyCharm
 .idea/
+
+.stestr/

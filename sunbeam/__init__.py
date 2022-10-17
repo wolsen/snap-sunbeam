@@ -1,4 +1,3 @@
-
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
 #   not use this file except in compliance with the License. You may obtain
 #   a copy of the License at
@@ -12,8 +11,9 @@
 #   under the License.
 #
 import pbr.version
-__all__ = ['__version__']
-version_info = pbr.version.VersionInfo('sunbeam')
+
+__all__ = ["__version__"]
+version_info = pbr.version.VersionInfo("sunbeam")
 try:
     __version__ = version_info.version_string()
 except AttributeError:

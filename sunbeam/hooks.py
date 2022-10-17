@@ -18,14 +18,13 @@ from snaphelpers import Snap
 
 from sunbeam.log import setup_logging
 
-
 LOG = logging.getLogger(__name__)
 DEFAULT_CONFIG = {
-    'control-plane.cloud': 'microk8s',
-    'control-plane.model': 'openstack',
-    'node.role': 'CONVERGED',
-    'snap.channel.juju': '3.0/beta',
-    'snap.channel.microk8s': '1.25-strict/stable',
+    "control-plane.cloud": "microk8s",
+    "control-plane.model": "openstack",
+    "node.role": "CONVERGED",
+    "snap.channel.juju": "3.0/beta",
+    "snap.channel.microk8s": "1.25-strict/stable",
 }
 
 
@@ -54,11 +53,11 @@ def install(snap: Snap) -> None:
     :type snap: Snap
     :return:
     """
-    setup_logging(snap.paths.common / 'hooks.log')
-    LOG.debug('Running install hook...')
-    src = snap.paths.snap / 'etc' / 'bundles'
-    dst = snap.paths.common / 'etc' / 'bundles'
-    LOG.debug(f'Copying {src} to {dst}...')
+    setup_logging(snap.paths.common / "hooks.log")
+    LOG.debug("Running install hook...")
+    src = snap.paths.snap / "etc" / "bundles"
+    dst = snap.paths.common / "etc" / "bundles"
+    LOG.debug(f"Copying {src} to {dst}...")
     shutil.copytree(src, dst)
 
     logging.info(f"Setting default config: {DEFAULT_CONFIG}")
@@ -74,11 +73,11 @@ def upgrade(snap: Snap) -> None:
     :param snap:
     :return:
     """
-    setup_logging(snap.paths.common / 'hooks.log')
-    LOG.debug('Running the upgrade hook...')
-    src = snap.paths.snap / 'etc' / 'bundles'
-    dst = snap.paths.common / 'etc' / 'bundles'
-    LOG.debug(f'Updating {dst} from {src}...')
+    setup_logging(snap.paths.common / "hooks.log")
+    LOG.debug("Running the upgrade hook...")
+    src = snap.paths.snap / "etc" / "bundles"
+    dst = snap.paths.common / "etc" / "bundles"
+    LOG.debug(f"Updating {dst} from {src}...")
     shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
@@ -93,7 +92,7 @@ def configure(snap: Snap) -> None:
     :type snap: Snap
     :return: None
     """
-    setup_logging(snap.paths.common / 'hooks.log')
+    setup_logging(snap.paths.common / "hooks.log")
     logging.info("Running configure hook")
 
     _update_default_config(snap)

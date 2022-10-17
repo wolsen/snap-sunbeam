@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import click
 import enum
 import logging
 from typing import Optional
 
+import click
 from rich.console import Console
 from rich.status import Status
-
 from semver import VersionInfo
 
 from sunbeam import utils
@@ -37,12 +36,9 @@ class ResultType(enum.Enum):
 
 
 class Result:
-    """The result of running a step
+    """The result of running a step"""
 
-    """
-
-    def __init__(self, result_type: ResultType,
-                 message: Optional[str] = ''):
+    def __init__(self, result_type: ResultType, message: Optional[str] = ""):
         """Creates a new result
 
         :param result_type:
@@ -59,8 +55,7 @@ class StepResult:
     whether running the Step was completed, failed, or skipped.
     """
 
-    def __init__(self, result_type: ResultType = ResultType.COMPLETED,
-                 **kwargs):
+    def __init__(self, result_type: ResultType = ResultType.COMPLETED, **kwargs):
         """Creates a new StepResult.
 
         The StepResult will contain various information regarding the result
@@ -83,8 +78,9 @@ class StepResult:
             # a bit of code doesn't accidentally override a base object
             # attribute.
             if hasattr(self, key):
-                raise ValueError(f'{key} was specified but already exists on '
-                                 f'this StepResult.')
+                raise ValueError(
+                    f"{key} was specified but already exists on " f"this StepResult."
+                )
             self.__setattr__(key, value)
 
 
@@ -95,7 +91,7 @@ class BaseStep:
     action as part of carrying out a plan.
     """
 
-    def __init__(self, name: str, description: str = ''):
+    def __init__(self, name: str, description: str = ""):
         """Initialise the BaseStep
 
         :param name: the name of the step
@@ -147,11 +143,9 @@ class InstallSnapStep(BaseStep):
 
     MIN_VERSION = VersionInfo(0, 0, 1)
 
-    def __init__(self, snap: str,
-                 channel: Optional[str] = 'latest/stable'):
+    def __init__(self, snap: str, channel: Optional[str] = "latest/stable"):
         self.snap = snap
-        super().__init__(name=f'Install {snap}',
-                         description=f'Installing {snap}')
+        super().__init__(name=f"Install {snap}", description=f"Installing {snap}")
         self.channel = channel
         self.snap_client = SnapClient()
         self._installed_version = None
@@ -176,11 +170,11 @@ class InstallSnapStep(BaseStep):
                  installed
         """
         if status:
-            status.update(status=f'Checking for installed {self.snap}')
+            status.update(status=f"Checking for installed {self.snap}")
 
         snaps = self.snap_client.snaps.get_installed_snaps([self.snap])
         if not snaps:
-            LOG.debug(f'No {self.snap} snaps were installed.')
+            LOG.debug(f"No {self.snap} snaps were installed.")
             return False
 
         # It is possible to install snaps multiple times with different names,
@@ -188,13 +182,13 @@ class InstallSnapStep(BaseStep):
         # communication available between this snap and the Juju/Microk8s snaps
         # this configuration cannot be safely supported.
         if len(snaps) > 1:
-            LOG.warning(f'Multiple {self.snap} snaps are installed.')
+            LOG.warning(f"Multiple {self.snap} snaps are installed.")
             # TODO(wolsen) Determine if there's a way we can handle this. It is
             #  possible that there are two snaps installed, with one installed
             #  to the default path and another installed with a different name
             raise click.ClickException(
-                f'Found {len(snaps)} {self.snap} snaps already installed. '
-                f'Only one installed {self.snap} snap is allowed.'
+                f"Found {len(snaps)} {self.snap} snaps already installed. "
+                f"Only one installed {self.snap} snap is allowed."
             )
 
         # Hmm, could be a developer version of the snap as a test, or something
@@ -203,24 +197,24 @@ class InstallSnapStep(BaseStep):
         inst_snap = snaps[0]
         try:
             if status:
-                status.update(status=f'Found {self.snap} version '
-                                     f'{inst_snap.version}')
+                status.update(
+                    status=f"Found {self.snap} version " f"{inst_snap.version}"
+                )
 
-            LOG.debug(f'Found {self.snap} version {inst_snap.version} '
-                      'installed.')
+            LOG.debug(f"Found {self.snap} version {inst_snap.version} " "installed.")
             version = utils.parse_version(inst_snap.version)
             self._installed_version = version
             if self._is_valid_version(version):
                 return True
 
-            LOG.debug('The installed Juju is too old.')
+            LOG.debug("The installed Juju is too old.")
             raise click.ClickException(
-                f'The installed version of {self.snap} ({inst_snap.version}) '
-                f'is too old. Install a version newer than '
-                f'{self.MIN_VERSION} and try again.'
+                f"The installed version of {self.snap} ({inst_snap.version}) "
+                f"is too old. Install a version newer than "
+                f"{self.MIN_VERSION} and try again."
             )
         except ValueError:
-            LOG.error(f'Failed to parse the {self.snap} version string.')
+            LOG.error(f"Failed to parse the {self.snap} version string.")
             self._installed_version = utils.UNKNOWN_VERSION
             return False
 
@@ -250,9 +244,11 @@ class InstallSnapStep(BaseStep):
         """
         if not self._installed_version:
             from rich.prompt import Confirm
+
             console.print()
-            confirm = Confirm.ask(f"Install {self.snap} onto this machine?",
-                                  default="Yes")
+            confirm = Confirm.ask(
+                f"Install {self.snap} onto this machine?", default="Yes"
+            )
             if not confirm:
                 raise click.ClickException(
                     f"{self.snap} needs to be installed to continue."
@@ -265,24 +261,24 @@ class InstallSnapStep(BaseStep):
             # At this point, there's a version of Juju installed and any
             # prompts have been bypassed at this point. As such, there's
             # nothing to do.
-            LOG.debug(f'{self.snap} is already installed, nothing to do.')
+            LOG.debug(f"{self.snap} is already installed, nothing to do.")
             return Result(ResultType.COMPLETED)
 
         try:
-            LOG.debug(f'Installing {self.snap} from channel {self.channel}')
+            LOG.debug(f"Installing {self.snap} from channel {self.channel}")
             if status:
-                status.update(f'Installing {self.snap} from channel '
-                              f'{self.channel} ...')
-            change_id = self.snap_client.snaps.install(self.snap, self.channel,
-                                                       classic=False)
-            LOG.debug(f'Initiated installation with change {change_id}')
+                status.update(
+                    f"Installing {self.snap} from channel " f"{self.channel} ..."
+                )
+            change_id = self.snap_client.snaps.install(
+                self.snap, self.channel, classic=False
+            )
+            LOG.debug(f"Initiated installation with change {change_id}")
             self.snap_client.changes.wait_until(
                 change_id, [SnapStatus.DoneStatus, SnapStatus.ErrorStatus]
             )
         except:  # noqa
-            LOG.exception(f'Error occurred installing {self.snap}')
-            return Result(ResultType.FAILED,
-                          f'Error occurred installing {self.snap}')
+            LOG.exception(f"Error occurred installing {self.snap}")
+            return Result(ResultType.FAILED, f"Error occurred installing {self.snap}")
 
         return Result(ResultType.COMPLETED)
-
