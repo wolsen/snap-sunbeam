@@ -10,5 +10,6 @@ requests # Apache 2
 requests-unixsocket # Apache 2
 
 pydantic # MIT
+semver # BSD-3
 
 #git+https://github.com/openstack-charmers/zaza.git#egg=zaza

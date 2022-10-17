@@ -17,60 +17,35 @@ import asyncio
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from typing import Optional
 
-#import zaza.model
+from semver import VersionInfo
 
-from sunbeam.jobs.common import BaseStep
-from sunbeam.jobs.common import Result
-from sunbeam.jobs.common import ResultType
-from sunbeam.snapd.changes import Status
-from sunbeam.snapd.client import Client
-
+from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 
 LOG = logging.getLogger(__name__)
 
 
-class EnsureJujuInstalled(BaseStep):
+class EnsureJujuInstalled(InstallSnapStep):
     """Validates the Juju is installed.
 
     Note, this can go away if Juju adds an interface for us to know that it
     is present.
     """
-    def __init__(self, channel: str = 'latest/stable'):
-        super().__init__(name='Ensure Juju',
-                         description='Checking for Juju installation')
-        self.channel = channel
 
-    def run(self) -> Result:
-        """Checks to see if Juju is installed..."""
-        client = Client()
-        snaps = client.snaps.get_installed_snaps(['juju'])
-        if not snaps:
-            LOG.debug('No snaps returned from query')
+    MIN_JUJU_VERSION = VersionInfo(2, 9, 30)
 
-            change_id = client.snaps.install('juju',
-                                             self.channel,
-                                             classic=False)
-            client.changes.wait_until(change_id, [Status.DoneStatus,
-                                                  Status.ErrorStatus])
-
-        if len(snaps) > 1:
-            LOG.debug('More than one snap named juju?')
-            return Result(ResultType.FAILED, 'Too many juju clients installed')
-
-        return Result(ResultType.COMPLETED)
+    def __init__(self, channel: str = "latest/stable"):
+        super().__init__(snap="juju", channel=channel)
 
 
 class BootstrapJujuStep(BaseStep):
-    """Bootstraps the Juju controller.
+    """Bootstraps the Juju controller."""
 
-    """
     def __init__(self, cloud):
-        super().__init__('Bootstrap Juju',
-                         'Bootstrapping Juju into microk8s')
+        super().__init__("Bootstrap Juju", "Bootstrapping Juju into microk8s")
 
         self.controller_name = None
         self.cloud = cloud
@@ -93,19 +68,19 @@ class BootstrapJujuStep(BaseStep):
         :param args: command to run
         :return:
         """
-        cmd = ['/snap/bin/juju']
+        cmd = ["/snap/bin/juju"]
         cmd.extend(args)
-        cmd.extend(['--format', 'json'])
+        cmd.extend(["--format", "json"])
 
         LOG.debug(f'Running command {" ".join(cmd)}')
-        process = subprocess.run(cmd, capture_output=True, text=True,
-                                 check=True)
-        LOG.debug(f'Command finished. stdout={process.stdout}, '
-                  'stderr={process.stderr}')
+        process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        LOG.debug(
+            f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+        )
 
         return json.loads(process.stdout.strip())
 
-    def is_skip(self):
+    def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -113,32 +88,35 @@ class BootstrapJujuStep(BaseStep):
 
         # Determine which kubernetes clouds are added
         try:
-            clouds = self._juju_cmd('clouds')
-            LOG.debug(f'Available clouds in juju are {clouds.keys()}')
+            clouds = self._juju_cmd("clouds")
+            LOG.debug(f"Available clouds in juju are {clouds.keys()}")
 
             k8s_clouds = []
             for name, details in clouds.items():
-                if details['type'] == 'k8s':
+                if details["type"] == "k8s":
                     k8s_clouds.append(name)
 
-            LOG.debug(f'There are {len(k8s_clouds)} k8s clouds available: '
-                      f'{k8s_clouds}')
+            LOG.debug(
+                f"There are {len(k8s_clouds)} k8s clouds available: " f"{k8s_clouds}"
+            )
 
-            controllers = self._juju_cmd('controllers')
+            controllers = self._juju_cmd("controllers")
 
-            LOG.debug(f'Found controllers: {controllers.keys()}')
+            LOG.debug(f"Found controllers: {controllers.keys()}")
             LOG.debug(controllers)
-            controllers = controllers.get('controllers', {})
+            controllers = controllers.get("controllers", {})
             if not controllers:
                 return False
 
             existing_controllers = []
             for name, details in controllers.items():
-                if details['cloud'] in k8s_clouds:
+                if details["cloud"] in k8s_clouds:
                     existing_controllers.append(name)
 
-            LOG.debug(f'There are {len(existing_controllers)} existing k8s '
-                      f'controllers running: {existing_controllers}')
+            LOG.debug(
+                f"There are {len(existing_controllers)} existing k8s "
+                f"controllers running: {existing_controllers}"
+            )
             if not existing_controllers:
                 return False
 
@@ -148,12 +126,14 @@ class BootstrapJujuStep(BaseStep):
             self.controller_name = existing_controllers[0]
             return True
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error determining whether to skip the bootstrap '
-                          'process. Defaulting to not skip.')
+            LOG.exception(
+                "Error determining whether to skip the bootstrap "
+                "process. Defaulting to not skip."
+            )
             LOG.debug(e.stdout)
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -161,68 +141,66 @@ class BootstrapJujuStep(BaseStep):
         :return:
         """
         try:
-            cmd = ['/snap/bin/juju', 'clouds', '--format', 'json']
+            cmd = ["/snap/bin/juju", "clouds", "--format", "json"]
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             clouds = json.loads(process.stdout)
             if self.cloud not in clouds:
-                LOG.critical('Could not find microk8s as a suitable cloud!')
-                return Result(ResultType.FAILED,
-                              'Unable to bootstrap to microk8s')
+                LOG.critical("Could not find microk8s as a suitable cloud!")
+                return Result(ResultType.FAILED, "Unable to bootstrap to microk8s")
 
-            cmd = ['/snap/bin/juju', 'bootstrap', self.cloud]
+            cmd = ["/snap/bin/juju", "bootstrap", self.cloud]
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception(f'Error bootstrapping juju: {e.stderr}')
+            LOG.exception(f"Error bootstrapping juju: {e.stderr}")
             return Result(ResultType.FAILED, e.stdout)
 
 
 class CreateModelStep(BaseStep):
-    """Creates the specified model name.
+    """Creates the specified model name."""
 
-    """
     def __init__(self, model: str):
-        super().__init__('Create model', 'Creating model')
+        super().__init__("Create model", "Creating model")
         self.model = model
 
-    def is_skip(self):
+    def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-        cmd = ['/snap/bin/juju', 'models', '--format', 'json']
+        cmd = ["/snap/bin/juju", "models", "--format", "json"]
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             models = json.loads(process.stdout.strip())
 
-            LOG.debug(f'Found models: {models}')
-            for model in models.get('models', []):
-                if model['short-name'] == self.model:
+            LOG.debug(f"Found models: {models}")
+            for model in models.get("models", []):
+                if model["short-name"] == self.model:
                     return True
 
             # TODO(wolsen) how to tell which substrate the controller is
             #  capable of?
             return False
         except subprocess.CalledProcessError:
-            LOG.exception('Error running juju models')
+            LOG.exception("Error running juju models")
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -230,67 +208,65 @@ class CreateModelStep(BaseStep):
         :return:
         """
         try:
-            cmd = ['/snap/bin/juju', 'add-model', self.model]
+            cmd = ["/snap/bin/juju", "add-model", self.model]
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error bootstrapping juju')
+            LOG.exception("Error bootstrapping juju")
             return Result(ResultType.FAILED, e.stdout)
 
 
 class DeployBundleStep(BaseStep):
-    """Creates the specified model name.
+    """Creates the specified model name."""
 
-    """
     def __init__(self, model: str, bundle: Path):
-        super().__init__('Deploy bundle', 'Deploy bundle')
+        super().__init__("Deploy bundle", "Deploy bundle")
 
         self.model = model
         self.bundle = bundle
         self.options = ["--trust"]
 
-    def is_skip(self):
+    def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
 
-        cmd = ['/snap/bin/juju', 'status', '--model', self.model,
-               '--format', 'json']
+        cmd = ["/snap/bin/juju", "status", "--model", self.model, "--format", "json"]
 
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             status = json.loads(process.stdout.strip())
 
-            LOG.debug(f'Status of  models {self.model}: {status}')
+            LOG.debug(f"Status of  models {self.model}: {status}")
             # TOCHK: Do we need to skip this step???
 
             return False
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error verifying juju status')
+            LOG.exception("Error verifying juju status")
             LOG.warning(e.stdout)
             LOG.warning(e.stderr)
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
 
         :return:
         """
-        home = os.environ.get('SNAP_REAL_HOME')
-        os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+        home = os.environ.get("SNAP_REAL_HOME")
+        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
 
         asyncio.get_event_loop().run_until_complete(self._run())
         return Result(ResultType.COMPLETED)
@@ -301,6 +277,7 @@ class DeployBundleStep(BaseStep):
         :return:
         """
         from juju.controller import Controller
+
         controller = Controller()
         await controller.connect()
 
@@ -308,13 +285,13 @@ class DeployBundleStep(BaseStep):
             # Get the reference to the specified model
             model = await controller.get_model(self.model)
             applications = await model.deploy(
-                f'local:{self.bundle}',
+                f"local:{self.bundle}",
                 trust=True,
             )
 
             await model.block_until(
                 lambda: all(
-                    unit.workload_status == 'active'
+                    unit.workload_status == "active"
                     for application in applications
                     for unit in application.units
                 )
@@ -326,41 +303,40 @@ class DeployBundleStep(BaseStep):
 
 
 class DestroyModelStep(BaseStep):
-    """Destroys the specified model name.
+    """Destroys the specified model name."""
 
-    """
     def __init__(self, model: str):
-        super().__init__('Destroy model', 'Destroy model')
+        super().__init__("Destroy model", "Destroy model")
 
         self.model = model
-        self.options = ['--destroy-storage', '-y']
+        self.options = ["--destroy-storage", "-y"]
 
-    def is_skip(self):
+    def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-        cmd = ['/snap/bin/juju', 'models', '--format', 'json']
+        cmd = ["/snap/bin/juju", "models", "--format", "json"]
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             models = json.loads(process.stdout.strip())
 
-            LOG.debug(f'Found models: {models}')
-            for model in models.get('models', []):
-                if model['short-name'] == self.model:
+            LOG.debug(f"Found models: {models}")
+            for model in models.get("models", []):
+                if model["short-name"] == self.model:
                     return False
 
             return True
         except subprocess.CalledProcessError:
-            LOG.exception('Error running juju models')
+            LOG.exception("Error running juju models")
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -368,59 +344,59 @@ class DestroyModelStep(BaseStep):
         :return:
         """
         try:
-            cmd = ['/snap/bin/juju', 'destroy-model', self.model]
+            cmd = ["/snap/bin/juju", "destroy-model", self.model]
             if self.options:
                 cmd.extend(self.options)
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error destroying juju model')
+            LOG.exception("Error destroying juju model")
             return Result(ResultType.FAILED, e.stdout)
 
 
 class ModelStatusStep(BaseStep):
-    """Get the status of the specified model name.
+    """Get the status of the specified model name."""
 
-    """
-    def __init__(self, model: str, states: Optional[Path] = None,
-                 timeout: Optional[int] = None):
-        super().__init__('Model status', 'Status of the apps in the model')
+    def __init__(
+        self, model: str, states: Optional[Path] = None, timeout: Optional[int] = None
+    ):
+        super().__init__("Model status", "Status of the apps in the model")
 
         self.model = model
         self.states = states
         self.timeout = timeout
 
-    def is_skip(self):
+    def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-        cmd = ['/snap/bin/juju', 'models', '--format', 'json']
+        cmd = ["/snap/bin/juju", "models", "--format", "json"]
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             models = json.loads(process.stdout.strip())
 
-            LOG.debug(f'Found models: {models}')
-            for model in models.get('models', []):
-                if model['short-name'] == self.model:
+            LOG.debug(f"Found models: {models}")
+            for model in models.get("models", []):
+                if model["short-name"] == self.model:
                     return False
 
             return True
         except subprocess.CalledProcessError:
-            LOG.exception('Error verifying juju status')
+            LOG.exception("Error verifying juju status")
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -445,8 +421,8 @@ class ModelStatusStep(BaseStep):
                     pass
                 LOG.debug('Symlink src {src} to dst {dst}')
                 """
-                home = os.environ.get('SNAP_REAL_HOME')
-                os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+                home = os.environ.get("SNAP_REAL_HOME")
+                os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
 
                 # asyncio.run(
                 #     zaza.model.async_wait_for_application_states(
@@ -454,33 +430,40 @@ class ModelStatusStep(BaseStep):
                 #         timeout=self.timeout
                 #     )
                 # )
-        except:
-            LOG.warning('Error occurred')
-            LOG.exception('Exception raised')
+        except Exception:  # noqa
+            LOG.warning("Error occurred")
+            LOG.exception("Exception raised")
         # except zaza.model.ModelTimeout:
         #     LOG.warn('Timedout waiting for apps to be active')
         # except zaza.model.UnitError as e:
         #     LOG.warn(e)
 
         try:
-            cmd = ['/snap/bin/juju', 'status', '--model', self.model,
-                   '--format', 'json']
+            cmd = [
+                "/snap/bin/juju",
+                "status",
+                "--model",
+                self.model,
+                "--format",
+                "json",
+            ]
 
             LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
+            )
 
             status = json.loads(process.stdout.strip())
             status_message = []
-            for app, details in status.get('applications', {}).items():
-                app_status = details.get('application-status',
-                                         {}).get('current', 'Unknown')
-                message = f'App {app} is in {app_status} state'
+            for app, details in status.get("applications", {}).items():
+                app_status = details.get("application-status", {}).get(
+                    "current", "Unknown"
+                )
+                message = f"App {app} is in {app_status} state"
                 status_message.append(message)
 
             return Result(ResultType.COMPLETED, status_message)
         except subprocess.CalledProcessError as e:
-            LOG.exception('Error getting status of model')
+            LOG.exception("Error getting status of model")
             return Result(ResultType.FAILED, e.stdout)

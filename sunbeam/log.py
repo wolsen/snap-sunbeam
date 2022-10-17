@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Union
 
 from rich.logging import RichHandler
@@ -43,7 +43,7 @@ def setup_root_logging():
     #  add this to the root command group and adopt the commands everywhere
     #  and analyze the context... but it was always parsed too late.
     for arg in sys.argv:
-        if arg.lower() in ['-v', '--verbose']:
+        if arg.lower() in ["-v", "--verbose"]:
             console = True
             break
 
@@ -53,7 +53,7 @@ def setup_root_logging():
     if console:
         handler = RichHandler()
         handler.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter('%(message)s', datefmt='[%X]'))
+        handler.setFormatter(logging.Formatter("%(message)s", datefmt="[%X]"))
         logger.addHandler(handler)
 
 

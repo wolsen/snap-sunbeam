@@ -16,5 +16,6 @@
 
 class BasePrompt:
     """Base prompt for asking for user input."""
+
     def __init__(self, question):
         self.question = question

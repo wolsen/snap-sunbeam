@@ -19,23 +19,21 @@ import click
 import requests
 import requests_unixsocket
 
-from sunbeam.snapd.changes import ChangeService
-from sunbeam.snapd.changes import Status
+from sunbeam.snapd.changes import ChangeService, Status
 from sunbeam.snapd.snaps import SnapService
 
 
 class Client:
-    """A client for interacting with the Snapd API.
+    """A client for interacting with the Snapd API."""
 
-    """
-    def __init__(self, version: str = 'v2',
-                 socket_path: Path = '/run/snapd.socket'):
+    def __init__(self, version: str = "v2", socket_path: Path = "/run/snapd.socket"):
         super(Client, self).__init__()
         self.__version = version
         self.__socket_path = socket_path
         self._session = requests.sessions.Session()
-        self._session.mount(requests_unixsocket.DEFAULT_SCHEME,
-                            requests_unixsocket.UnixAdapter())
+        self._session.mount(
+            requests_unixsocket.DEFAULT_SCHEME, requests_unixsocket.UnixAdapter()
+        )
         self.snaps = SnapService(self._session)
         self.changes = ChangeService(self._session)
 
@@ -47,20 +45,19 @@ def main() -> None:
 
 
 @main.command()
-@click.argument('snap')
-@click.option('--channel', default='latest/stable')
-@click.option('--classic', is_flag=True, help='Install in classic mode')
+@click.argument("snap")
+@click.option("--channel", default="latest/stable")
+@click.option("--classic", is_flag=True, help="Install in classic mode")
 def install(snap, channel, classic):
     """Installs the specified snap"""
     client = Client()
     change_id = client.snaps.install(snap, channel, classic=classic)
 
-    client.changes.wait_until(change_id, [Status.DoneStatus,
-                                          Status.ErrorStatus])
+    client.changes.wait_until(change_id, [Status.DoneStatus, Status.ErrorStatus])
 
 
 @main.command()
-@click.argument('snap')
+@click.argument("snap")
 def show(snap):
     """Shows details about the specified snap."""
     client = Client()
@@ -79,6 +76,6 @@ def show(snap):
 # Conversely, the snapd cli is kind of difficult to work with from a scripting
 # perspective.
 #
-if __name__ == '__main__':
+if __name__ == "__main__":
     main.add_command(install)
     main()

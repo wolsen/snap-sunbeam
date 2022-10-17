@@ -21,8 +21,8 @@ import click
 from rich.console import Console
 from snaphelpers import Snap
 
-from sunbeam.commands import juju
-from sunbeam.commands import microk8s
+from sunbeam import utils
+from sunbeam.commands import juju, microk8s  # noqa: H301
 from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class Role(enum.Enum):
     or a Converged node. The role will help determine which particular services
     need to be configured and installed on the system.
     """
+
     CONTROL = 1
     COMPUTE = 2
     CONVERGED = 3
@@ -79,13 +80,19 @@ class Role(enum.Enum):
 
 
 @click.command()
-@click.option('--auto', default=False, is_flag=True,
-              help='Automatically configure using the preselected defaults')
-@click.option('--role', default='converged',
-              type=click.Choice(['control', 'compute', 'converged'],
-                                case_sensitive=False),
-              help='Specify whether the node will be a control node, a '
-                   'compute node, or a converged node (default)')
+@click.option(
+    "--auto",
+    default=False,
+    is_flag=True,
+    help="Automatically configure using the preselected defaults",
+)
+@click.option(
+    "--role",
+    default="converged",
+    type=click.Choice(["control", "compute", "converged"], case_sensitive=False),
+    help="Specify whether the node will be a control node, a "
+    "compute node, or a converged node (default)",
+)
 def init(auto: bool, role: str) -> None:
     """Initialises the local node.
 
@@ -97,13 +104,20 @@ def init(auto: bool, role: str) -> None:
     architecture.
     """
     # context = click.get_current_context(silent=True)
+    # This command needs to have root privileges for some of the commands that
+    # it will invoke in the microk8s snap for configuration purposes.
+    if not utils.has_superuser_privileges():
+        raise click.UsageError(
+            "The init command needs to be run with root "
+            "privileges. Try again with sudo."
+        )
 
-    snap.config.set({'node.role': role.upper()})
+    snap.config.set({"node.role": role.upper()})
     node_role = Role[role.upper()]
-    microk8s_channel = snap.config.get('snap.channel.microk8s')
-    juju_channel = snap.config.get('snap.channel.juju')
+    microk8s_channel = snap.config.get("snap.channel.microk8s")
+    juju_channel = snap.config.get("snap.channel.juju")
 
-    LOG.debug(f'Initialising: auto {auto}, role {role}')
+    LOG.debug(f"Initialising: auto {auto}, role {role}")
 
     plan = []
 
@@ -115,32 +129,42 @@ def init(auto: bool, role: str) -> None:
         plan.append(microk8s.EnableStorage())
         plan.append(microk8s.EnableMetalLB())
         sudo_user = os.environ.get("SUDO_USER")
-        LOG.debug(f'Enabling microk8s access to {sudo_user}')
+        LOG.debug(f"Enabling microk8s access to {sudo_user}")
         if sudo_user:
             plan.append(microk8s.EnableAccessToUser(sudo_user))
 
     if node_role.is_compute_node():
-        LOG.debug('This is where we would append steps for the compute node')
+        LOG.debug("This is where we would append steps for the compute node")
 
     for step in plan:
-        LOG.debug(f'Starting step {step.name}')
-        message = f'{step.description} ... '
-        with console.status(f'{step.description} ... '):
-            if step.is_skip():
-                LOG.debug(f'Skipping step {step.name}')
-                console.print(f'{message}[green]Done[/green]')
+        LOG.debug(f"Starting step {step.name}")
+        message = f"{step.description} ... "
+
+        # if not auto:
+        #     step.prompt(console)
+
+        with console.status(f"{step.description} ... ") as status:
+            if step.is_skip(status=status):
+                LOG.debug(f"Skipping step {step.name}")
+                console.print(f"{message}[green]Done[/green]")
                 continue
-            else:
-                LOG.debug(f'Running step {step.name}')
-                result = step.run()
-                LOG.debug(f'Finished running step {step.name}. '
-                          f'Result: {result.result_type}')
+
+            if not auto and step.has_prompts():
+                status.stop()
+                step.prompt(console)
+                status.start()
+
+            LOG.debug(f"Running step {step.name}")
+            result = step.run()
+            LOG.debug(
+                f"Finished running step {step.name}. " f"Result: {result.result_type}"
+            )
 
         if result.result_type == ResultType.FAILED:
-            console.print(f'{message}[red]Failed[/red]')
+            console.print(f"{message}[red]Failed[/red]")
             raise click.ClickException(result.message)
 
-        console.print(f'{message}[green]Done[/green]')
+        console.print(f"{message}[green]Done[/green]")
 
     # if node_role.is_compute_node():
     #     with console.status('Configuring hypervisor...', spinner='dots'):
@@ -151,11 +175,13 @@ def init(auto: bool, role: str) -> None:
     #
     #     click.echo('Hypervisor has been configured')
 
-    click.echo(f'Node has been initialised as a {role} node')
-    click.echo('Run following commands to bootstrap:\n'
-               'newgrp snap_microk8s\n'
-               'microstack bootstrap')
+    click.echo(f"Node has been initialised as a {role} node")
+    click.echo(
+        "Run following commands to bootstrap:\n"
+        "newgrp snap_microk8s\n"
+        "microstack bootstrap"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     init()

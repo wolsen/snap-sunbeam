@@ -17,23 +17,22 @@ import logging
 
 import click
 
+from sunbeam import log
 from sunbeam.commands import bootstrap as bootstrap_cmds
 from sunbeam.commands import init as init_cmds
 from sunbeam.commands import reset as reset_cmds
 from sunbeam.commands import status as status_cmds
-from sunbeam import log
-
 
 LOG = logging.getLogger()
 
 # Update the help options to allow -h in addition to --help for
 # triggering the help for various commands
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
-@click.group('init', context_settings=CONTEXT_SETTINGS)
-@click.option('--quiet', '-q', default=False, is_flag=True)
-@click.option('--verbose', '-v', default=False, is_flag=True)
+@click.group("init", context_settings=CONTEXT_SETTINGS)
+@click.option("--quiet", "-q", default=False, is_flag=True)
+@click.option("--verbose", "-v", default=False, is_flag=True)
 @click.pass_context
 def cli(ctx, quiet, verbose):
     """Description of what the sunbeam command does.
@@ -52,5 +51,5 @@ def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
