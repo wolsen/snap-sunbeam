@@ -20,48 +20,28 @@ import os
 from pathlib import Path
 import subprocess
 from typing import Optional
-
-#import zaza.model
+from semver import VersionInfo
 
 from sunbeam.jobs.common import BaseStep
+from sunbeam.jobs.common import InstallSnapStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
-from sunbeam.snapd.changes import Status
-from sunbeam.snapd.client import Client
 
 
 LOG = logging.getLogger(__name__)
 
 
-class EnsureJujuInstalled(BaseStep):
+class EnsureJujuInstalled(InstallSnapStep):
     """Validates the Juju is installed.
 
     Note, this can go away if Juju adds an interface for us to know that it
     is present.
     """
+
+    MIN_JUJU_VERSION = VersionInfo(2, 9, 30)
+
     def __init__(self, channel: str = 'latest/stable'):
-        super().__init__(name='Ensure Juju',
-                         description='Checking for Juju installation')
-        self.channel = channel
-
-    def run(self) -> Result:
-        """Checks to see if Juju is installed..."""
-        client = Client()
-        snaps = client.snaps.get_installed_snaps(['juju'])
-        if not snaps:
-            LOG.debug('No snaps returned from query')
-
-            change_id = client.snaps.install('juju',
-                                             self.channel,
-                                             classic=False)
-            client.changes.wait_until(change_id, [Status.DoneStatus,
-                                                  Status.ErrorStatus])
-
-        if len(snaps) > 1:
-            LOG.debug('More than one snap named juju?')
-            return Result(ResultType.FAILED, 'Too many juju clients installed')
-
-        return Result(ResultType.COMPLETED)
+        super().__init__(snap='juju', channel=channel)
 
 
 class BootstrapJujuStep(BaseStep):
@@ -105,7 +85,7 @@ class BootstrapJujuStep(BaseStep):
 
         return json.loads(process.stdout.strip())
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -153,7 +133,7 @@ class BootstrapJujuStep(BaseStep):
             LOG.debug(e.stdout)
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -195,7 +175,7 @@ class CreateModelStep(BaseStep):
         super().__init__('Create model', 'Creating model')
         self.model = model
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -222,7 +202,7 @@ class CreateModelStep(BaseStep):
             LOG.exception('Error running juju models')
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -254,7 +234,7 @@ class DeployBundleStep(BaseStep):
         self.bundle = bundle
         self.options = ["--trust"]
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -282,7 +262,7 @@ class DeployBundleStep(BaseStep):
             LOG.warning(e.stderr)
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -335,7 +315,7 @@ class DestroyModelStep(BaseStep):
         self.model = model
         self.options = ['--destroy-storage', '-y']
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -360,7 +340,7 @@ class DestroyModelStep(BaseStep):
             LOG.exception('Error running juju models')
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -395,7 +375,7 @@ class ModelStatusStep(BaseStep):
         self.states = states
         self.timeout = timeout
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -420,7 +400,7 @@ class ModelStatusStep(BaseStep):
             LOG.exception('Error verifying juju status')
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate

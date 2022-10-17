@@ -21,6 +21,7 @@ import click
 from rich.console import Console
 from snaphelpers import Snap
 
+from sunbeam import utils
 from sunbeam.commands import juju
 from sunbeam.commands import microk8s
 from sunbeam.jobs.common import ResultType
@@ -97,6 +98,11 @@ def init(auto: bool, role: str) -> None:
     architecture.
     """
     # context = click.get_current_context(silent=True)
+    # This command needs to have root privileges for some of the commands that
+    # it will invoke in the microk8s snap for configuration purposes.
+    if not utils.has_superuser_privileges():
+        raise click.UsageError('The init command needs to be run with root '
+                               'privileges. Try again with sudo.')
 
     snap.config.set({'node.role': role.upper()})
     node_role = Role[role.upper()]
@@ -126,19 +132,24 @@ def init(auto: bool, role: str) -> None:
         LOG.debug(f'Starting step {step.name}')
         message = f'{step.description} ... '
 
-        if not auto:
-            step.prompt(console)
+        # if not auto:
+        #     step.prompt(console)
 
-        with console.status(f'{step.description} ... '):
-            if step.is_skip():
+        with console.status(f'{step.description} ... ') as status:
+            if step.is_skip(status=status):
                 LOG.debug(f'Skipping step {step.name}')
                 console.print(f'{message}[green]Done[/green]')
                 continue
-            else:
-                LOG.debug(f'Running step {step.name}')
-                result = step.run()
-                LOG.debug(f'Finished running step {step.name}. '
-                          f'Result: {result.result_type}')
+
+            if not auto and step.has_prompts():
+                status.stop()
+                step.prompt(console)
+                status.start()
+
+            LOG.debug(f'Running step {step.name}')
+            result = step.run()
+            LOG.debug(f'Finished running step {step.name}. '
+                      f'Result: {result.result_type}')
 
         if result.result_type == ResultType.FAILED:
             console.print(f'{message}[red]Failed[/red]')

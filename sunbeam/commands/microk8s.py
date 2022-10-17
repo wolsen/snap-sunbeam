@@ -15,47 +15,30 @@
 
 import logging
 import subprocess
-import typing
+
+from semver import VersionInfo
+from typing import Optional
 
 from sunbeam.jobs.common import BaseStep
+from sunbeam.jobs.common import InstallSnapStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
-from sunbeam.snapd.changes import Status
-from sunbeam.snapd.client import Client
 
 
 LOG = logging.getLogger(__name__)
 
 
-class EnsureMicrok8sInstalled(BaseStep):
+class EnsureMicrok8sInstalled(InstallSnapStep):
     """Validates microk8s is installed.
 
     Note, this can go away if we can default include the microk8s snap
     """
+
+    MIN_VERSION = VersionInfo(1, 25, 0)
+
     def __init__(self, channel: str = 'latest/stable'):
-        super().__init__(name='Ensure microk8s',
-                         description='Checking for microk8s installation')
+        super().__init__(snap='microk8s', channel=channel)
         self.channel = channel
-
-    def run(self) -> Result:
-        """Checks to see if microk8s is installed..."""
-        client = Client()
-        snaps = client.snaps.get_installed_snaps(['microk8s'])
-        if not snaps:
-            LOG.debug('No snaps returned from query')
-
-            change_id = client.snaps.install('microk8s',
-                                             self.channel,
-                                             classic=False)
-            client.changes.wait_until(change_id, [Status.DoneStatus,
-                                                  Status.ErrorStatus])
-
-        if len(snaps) > 1:
-            LOG.debug('More than one snap named microk8s?')
-            return Result(ResultType.FAILED,
-                          'Too many microk8s snaps installed.')
-
-        return Result(ResultType.COMPLETED)
 
 
 class BaseCoreMicroK8sEnableStep(BaseStep):
@@ -70,7 +53,7 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
         if len(args):
             self._args = [a for a in args]
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -87,7 +70,7 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             LOG.exception('Error determining ha-cluster add on status')
             return False
 
-    def run(self) -> Result:
+    def run(self, status: Optional['Status'] = None) -> Result:
         """Run the step to completion.
 
         Invoked when the step is run and returns a ResultType to indicate
@@ -135,9 +118,12 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
     def __init__(self):
         super().__init__('metallb', '10.20.20.1-10.20.20.2')
 
+    def has_prompts(self) -> bool:
+        return True
+
     def prompt(
             self,
-            console: typing.Optional['rich.console.Console'] = None
+            console: Optional['rich.console.Console'] = None
     ) -> None:
         """Prompt the user for which IP ranges to configure.
 
@@ -147,6 +133,7 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
         :type console: rich.console.Console (Optional)
         """
         from rich.prompt import Prompt
+        console.print()
         network = Prompt.ask("Which network range should be used for control "
                              "plane services: ", default='10.20.20.1/29',
                              console=console)
@@ -160,7 +147,7 @@ class EnableAccessToUser(BaseStep):
                          description='Provide microk8s access to user')
         self.user = user
 
-    def is_skip(self):
+    def is_skip(self, status: Optional['Status'] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
@@ -168,7 +155,7 @@ class EnableAccessToUser(BaseStep):
         # Check if user is already part of group
         return False
 
-    def run(self):
+    def run(self, status: Optional['Status'] = None):
         """Add user to snap_microk8s group
 
         """
