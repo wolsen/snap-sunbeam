@@ -105,6 +105,28 @@ class EnableDNS(BaseCoreMicroK8sEnableStep):
     def __init__(self):
         super().__init__("dns")
 
+    def has_prompts(self) -> bool:
+        return True
+
+    def prompt(self, console: Optional["rich.console.Console"] = None) -> None:
+        """Prompt the user for usptream nameserver.
+
+        Prompts the user to determine the upstream nameserver to be used
+        to configure dns.
+
+        :param console: the console to prompt on
+        :type console: rich.console.Console (Optional)
+        """
+        from rich.prompt import Prompt
+
+        console.print()
+        nameservers = Prompt.ask(
+            "Comma separated upstream nameservers:",
+            default="8.8.8.8,8.8.4.4",
+            console=console,
+        )
+        self._args = [nameservers]
+
 
 class EnableStorage(BaseCoreMicroK8sEnableStep):
     """Enable host-based storage for microk8s"""

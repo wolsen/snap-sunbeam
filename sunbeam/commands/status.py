@@ -81,7 +81,7 @@ def status(wait_ready: bool, timeout: int) -> None:
             console.print(f"{message}[red]Failed[/red]")
             raise click.ClickException(result.message)
 
-    console.print("Sunbeam status:")
+    console.print("Microstack status:")
     for message in status_overall:
         if "active" in message:
             console.print(f"[green]{message}[/green]")
