@@ -17,10 +17,12 @@ import asyncio
 import json
 import logging
 import os
-import subprocess
 from pathlib import Path
+import subprocess
+import time
 from typing import Optional
 
+from juju.controller import Controller
 from semver import VersionInfo
 
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
@@ -276,19 +278,18 @@ class DeployBundleStep(BaseStep):
 
         :return:
         """
-        from juju.controller import Controller
-
         controller = Controller()
         await controller.connect()
 
         try:
             # Get the reference to the specified model
             model = await controller.get_model(self.model)
-            applications = await model.deploy(
+            await model.deploy(
                 f"local:{self.bundle}",
                 trust=True,
             )
 
+            """
             await model.block_until(
                 lambda: all(
                     unit.workload_status == "active"
@@ -296,6 +297,7 @@ class DeployBundleStep(BaseStep):
                     for unit in application.units
                 )
             )
+            """
         finally:
             await controller.disconnect()
 
@@ -369,32 +371,31 @@ class ModelStatusStep(BaseStep):
 
         self.model = model
         self.states = states
-        self.timeout = timeout
+        self.timeout = timeout or 0
+
+        home = os.environ.get("SNAP_REAL_HOME")
+        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
+
+    async def _get_models(self) -> dict:
+        controller = Controller()
+        await controller.connect()
+        models = await controller.list_models()
+        await controller.disconnect()
+        return models
 
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-        cmd = ["/snap/bin/juju", "models", "--format", "json"]
-        try:
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            LOG.debug(
-                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
-            )
+        LOG.debug("Getting models information from juju")
+        models = asyncio.get_event_loop().run_until_complete(self._get_models())
+        LOG.debug(f"juju models: {models}")
 
-            models = json.loads(process.stdout.strip())
-
-            LOG.debug(f"Found models: {models}")
-            for model in models.get("models", []):
-                if model["short-name"] == self.model:
-                    return False
-
-            return True
-        except subprocess.CalledProcessError:
-            LOG.exception("Error verifying juju status")
+        if self.model in models:
             return False
+
+        return True
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
@@ -404,66 +405,58 @@ class ModelStatusStep(BaseStep):
         :return:
         """
         try:
-            if self.states:
+            home = os.environ.get("SNAP_REAL_HOME")
+            os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
 
-                """
-                # Workaround for https://bugs.launchpad.net/juju/+bug/1990797
-                import os
-                snap_real_home = os.environ.get('SNAP_REAL_HOME')
-                home = os.environ.get('HOME')
-                src = Path(snap_real_home) / '.local' / 'share' / 'juju'
-                dst = Path(home) / '.local' / 'share'
-                os.makedirs(dst, exist_ok=True)
-                dst = dst / 'juju'
-                try:
-                    os.symlink(src, dst)
-                except FileExistsError:
-                    pass
-                LOG.debug('Symlink src {src} to dst {dst}')
-                """
-                home = os.environ.get("SNAP_REAL_HOME")
-                os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
+            apps_status = asyncio.get_event_loop().run_until_complete(self._run())
 
-                # asyncio.run(
-                #     zaza.model.async_wait_for_application_states(
-                #         model_name=self.model, states=self.states,
-                #         timeout=self.timeout
-                #     )
-                # )
-        except Exception:  # noqa
-            LOG.warning("Error occurred")
-            LOG.exception("Exception raised")
-        # except zaza.model.ModelTimeout:
-        #     LOG.warn('Timedout waiting for apps to be active')
-        # except zaza.model.UnitError as e:
-        #     LOG.warn(e)
-
-        try:
-            cmd = [
-                "/snap/bin/juju",
-                "status",
-                "--model",
-                self.model,
-                "--format",
-                "json",
-            ]
-
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            LOG.debug(
-                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
-            )
-
-            status = json.loads(process.stdout.strip())
             status_message = []
-            for app, details in status.get("applications", {}).items():
-                app_status = details.get("application-status", {}).get(
-                    "current", "Unknown"
-                )
-                message = f"App {app} is in {app_status} state"
+            for app, status in apps_status.items():
+                message = f"App {app} is in {status} state"
                 status_message.append(message)
 
             return Result(ResultType.COMPLETED, status_message)
-        except subprocess.CalledProcessError as e:
+        except Exception as e:  # noqa
             LOG.exception("Error getting status of model")
             return Result(ResultType.FAILED, e.stdout)
+
+    async def _run(self) -> dict:
+        """
+
+        :return:
+        """
+        controller = Controller()
+        await controller.connect()
+
+        try:
+            # Get the reference to the specified model
+            model = await controller.get_model(self.model)
+            start = time.time()
+            apps = set(model.applications.keys())
+            apps_count = len(apps)
+            apps_active = set()
+            apps_status = {}
+
+            while True:
+                # now we sleep to allow progress to be made in the
+                # libjuju futures
+                await asyncio.sleep(1.0)
+                timed_out = int(time.time() - start) > self.timeout
+
+                for application in apps:
+                    app_data = model.applications.get(application, None)
+                    if app_data:
+                        apps_status[application] = app_data.status
+                        if app_data.status == "active":
+                            apps_active.add(application)
+
+                if apps_count == len(apps_active):
+                    return apps_status
+
+                if timed_out:
+                    if self.timeout:
+                        LOG.warning("TIMEOUT: Workloads didn't reach acceptable status")
+                    return apps_status
+
+        finally:
+            await controller.disconnect()
