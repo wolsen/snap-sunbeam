@@ -19,6 +19,7 @@ import subprocess
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
+from sunbeam.snapd.changes import Status
 from sunbeam.snapd.client import Client
 
 
@@ -30,9 +31,10 @@ class EnsureMicrok8sInstalled(BaseStep):
 
     Note, this can go away if we can default include the microk8s snap
     """
-    def __init__(self):
+    def __init__(self, channel: str = 'latest/stable'):
         super().__init__(name='Ensure microk8s',
                          description='Checking for microk8s installation')
+        self.channel = channel
 
     def run(self) -> Result:
         """Checks to see if microk8s is installed..."""
@@ -40,10 +42,12 @@ class EnsureMicrok8sInstalled(BaseStep):
         snaps = client.snaps.get_installed_snaps(['microk8s'])
         if not snaps:
             LOG.debug('No snaps returned from query')
-            return Result(ResultType.FAILED,
-                          'Could not detect microk8s installation. Install '
-                          'microk8s by running `sudo snap install microk8s` '
-                          'then try again.')
+
+            change_id = client.snaps.install('microk8s',
+                                             self.channel,
+                                             classic=False)
+            client.changes.wait_until(change_id, [Status.DoneStatus,
+                                                  Status.ErrorStatus])
 
         if len(snaps) > 1:
             LOG.debug('More than one snap named microk8s?')
@@ -129,3 +133,38 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
     """Enable metallb for microk8s"""
     def __init__(self):
         super().__init__('metallb', '10.20.20.1-10.20.20.2')
+
+
+class EnableAccessToUser(BaseStep):
+    """Enable microk8s access to user"""
+    def __init__(self, user: str):
+        super().__init__(name='Ensure microk8s access',
+                         description='Provide microk8s access to user')
+        self.user = user
+
+    def is_skip(self):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        # Check if user is already part of group
+        return False
+
+    def run(self):
+        """Add user to snap_microk8s group
+
+        """
+        cmd = ['usermod', '-a', '-G', 'snap_microk8s', self.user]
+
+        try:
+            LOG.debug(f'Running command {" ".join(cmd)}')
+            process = subprocess.run(cmd, capture_output=True, text=True,
+                                     check=True)
+            LOG.debug(f'Command finished. stdout={process.stdout}, '
+                      'stderr={process.stderr}')
+            return Result(ResultType.COMPLETED)
+        except subprocess.CalledProcessError as e:
+            error_message = 'Adding user to snap_microk8s group failed'
+            LOG.exception(error_message)
+            LOG.error(e.stderr)
+            return Result(ResultType.FAILED, error_message)

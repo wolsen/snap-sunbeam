@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+from pathlib import Path
 
 import click
 from rich.console import Console
@@ -23,44 +24,40 @@ from sunbeam.commands.init import Role
 from sunbeam.commands import juju
 from sunbeam.jobs.common import ResultType
 
-
 LOG = logging.getLogger(__name__)
 console = Console()
 snap = Snap()
 
 
 @click.command()
-def reset() -> None:
-    """Resets the local node.
+def bootstrap() -> None:
+    """Bootstrap the local node.
 
-    Reset the node to the defaults.
-    TODO:
-    Single node:
-    microk8s destroy-model sunbeam
-    snap remove microk8s??
-    snap remove juju??
-    Multi node:
-    microk8s remove-node
+    Bootstrap juju.
+    Deploy control plane if the node role is CONTROL.
+    Depoy openstack-hypervisor snap if the node role
+    is COMPUTE.
     """
     # context = click.get_current_context(silent=True)
 
     role = snap.config.get('node.role')
     node_role = Role[role.upper()]
 
-    # FIXME: Below params should be snap config options??
-    model = 'sunbeam'
+    LOG.debug(f'Bootstrap node: role {role}')
+
+    cloud = snap.config.get('control-plane.cloud')
+    model = snap.config.get('control-plane.model')
+    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
 
     plan = []
 
-    if node_role.is_compute_node() or node_role.is_converged_node():
-        LOG.debug('Append steps to reset the compute node')
+    if node_role.is_control_node():
+        plan.append(juju.BootstrapJujuStep(cloud=cloud))
+        plan.append(juju.CreateModelStep(model))
+        plan.append(juju.DeployBundleStep(model, bundle))
 
-    if node_role.is_control_node() or node_role.is_converged_node():
-        LOG.debug('Append steps to reset the control node')
-        # FIXME: This needs to be done only in non HA
-        # HA case, remove microk8s?? what if microk8s already
-        # exists and getting used for other purposes
-        plan.append(juju.DestroyModelStep(model))
+    if node_role.is_compute_node():
+        LOG.debug('This is where we would append steps for the compute node')
 
     for step in plan:
         LOG.debug(f'Starting step {step.name}')
@@ -82,6 +79,17 @@ def reset() -> None:
 
         console.print(f'{message}[green]Done[/green]')
 
+    # if node_role.is_compute_node():
+    #     with console.status('Configuring hypervisor...', spinner='dots'):
+    #         LOG.debug('testing')
+    #         time.sleep(5)
+    #         LOG.debug('now sleeping for a little longer')
+    #         time.sleep(5)
+    #
+    #     click.echo('Hypervisor has been configured')
+
+    click.echo(f'Node has been bootstrapped as a {role} node')
+
 
 if __name__ == '__main__':
-    reset()
+    bootstrap()

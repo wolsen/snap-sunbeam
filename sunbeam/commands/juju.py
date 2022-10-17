@@ -21,11 +21,12 @@ from pathlib import Path
 import subprocess
 from typing import Optional
 
-import zaza.model
+#import zaza.model
 
 from sunbeam.jobs.common import BaseStep
 from sunbeam.jobs.common import Result
 from sunbeam.jobs.common import ResultType
+from sunbeam.snapd.changes import Status
 from sunbeam.snapd.client import Client
 
 
@@ -38,9 +39,10 @@ class EnsureJujuInstalled(BaseStep):
     Note, this can go away if Juju adds an interface for us to know that it
     is present.
     """
-    def __init__(self):
+    def __init__(self, channel: str = 'latest/stable'):
         super().__init__(name='Ensure Juju',
                          description='Checking for Juju installation')
+        self.channel = channel
 
     def run(self) -> Result:
         """Checks to see if Juju is installed..."""
@@ -48,10 +50,12 @@ class EnsureJujuInstalled(BaseStep):
         snaps = client.snaps.get_installed_snaps(['juju'])
         if not snaps:
             LOG.debug('No snaps returned from query')
-            return Result(ResultType.FAILED,
-                          'Could not detect juju installation. Install '
-                          'juju by running `sudo snap install juju` then '
-                          'try again.')
+
+            change_id = client.snaps.install('juju',
+                                             self.channel,
+                                             classic=False)
+            client.changes.wait_until(change_id, [Status.DoneStatus,
+                                                  Status.ErrorStatus])
 
         if len(snaps) > 1:
             LOG.debug('More than one snap named juju?')
@@ -123,6 +127,7 @@ class BootstrapJujuStep(BaseStep):
             controllers = self._juju_cmd('controllers')
 
             LOG.debug(f'Found controllers: {controllers.keys()}')
+            LOG.debug(controllers)
             controllers = controllers.get('controllers', {})
             if not controllers:
                 return False
@@ -142,9 +147,10 @@ class BootstrapJujuStep(BaseStep):
             # influenced, but for now - we'll use the first controller.
             self.controller_name = existing_controllers[0]
             return True
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             LOG.exception('Error determining whether to skip the bootstrap '
                           'process. Defaulting to not skip.')
+            LOG.debug(e.stdout)
             return False
 
     def run(self) -> Result:
@@ -253,6 +259,7 @@ class DeployBundleStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
+
         cmd = ['/snap/bin/juju', 'status', '--model', self.model,
                '--format', 'json']
 
@@ -269,8 +276,10 @@ class DeployBundleStep(BaseStep):
             # TOCHK: Do we need to skip this step???
 
             return False
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             LOG.exception('Error verifying juju status')
+            LOG.warning(e.stdout)
+            LOG.warning(e.stderr)
             return False
 
     def run(self) -> Result:
@@ -280,22 +289,40 @@ class DeployBundleStep(BaseStep):
 
         :return:
         """
+        home = os.environ.get('SNAP_REAL_HOME')
+        os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
+
+        asyncio.get_event_loop().run_until_complete(self._run())
+        return Result(ResultType.COMPLETED)
+
+    async def _run(self) -> Result:
+        """
+
+        :return:
+        """
+        from juju.controller import Controller
+        controller = Controller()
+        await controller.connect()
+
         try:
-            cmd = ['/snap/bin/juju', 'deploy', '--model', self.model,
-                   str(self.bundle)]
+            # Get the reference to the specified model
+            model = await controller.get_model(self.model)
+            applications = await model.deploy(
+                f'local:{self.bundle}',
+                trust=True,
+            )
 
-            if self.options:
-                cmd.extend(self.options)
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True,
-                                     check=True)
-            LOG.debug(f'Command finished. stdout={process.stdout}, '
-                      'stderr={process.stderr}')
+            await model.block_until(
+                lambda: all(
+                    unit.workload_status == 'active'
+                    for application in applications
+                    for unit in application.units
+                )
+            )
+        finally:
+            await controller.disconnect()
 
-            return Result(ResultType.COMPLETED)
-        except subprocess.CalledProcessError as e:
-            LOG.exception('Error deploying juju bundle')
-            return Result(ResultType.FAILED, e.stdout)
+        return Result(ResultType.COMPLETED)
 
 
 class DestroyModelStep(BaseStep):
@@ -421,16 +448,19 @@ class ModelStatusStep(BaseStep):
                 home = os.environ.get('SNAP_REAL_HOME')
                 os.environ['JUJU_DATA'] = f'{home}/.local/share/juju'
 
-                asyncio.run(
-                    zaza.model.async_wait_for_application_states(
-                        model_name=self.model, states=self.states,
-                        timeout=self.timeout
-                    )
-                )
-        except zaza.model.ModelTimeout:
-            LOG.warn('Timedout waiting for apps to be active')
-        except zaza.model.UnitError as e:
-            LOG.warn(e)
+                # asyncio.run(
+                #     zaza.model.async_wait_for_application_states(
+                #         model_name=self.model, states=self.states,
+                #         timeout=self.timeout
+                #     )
+                # )
+        except:
+            LOG.warning('Error occurred')
+            LOG.exception('Exception raised')
+        # except zaza.model.ModelTimeout:
+        #     LOG.warn('Timedout waiting for apps to be active')
+        # except zaza.model.UnitError as e:
+        #     LOG.warn(e)
 
         try:
             cmd = ['/snap/bin/juju', 'status', '--model', self.model,

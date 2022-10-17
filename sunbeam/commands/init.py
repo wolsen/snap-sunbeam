@@ -15,7 +15,7 @@
 
 import enum
 import logging
-from pathlib import Path
+import os
 
 import click
 from rich.console import Console
@@ -98,26 +98,26 @@ def init(auto: bool, role: str) -> None:
     """
     # context = click.get_current_context(silent=True)
 
+    snap.config.set({'node.role': role.upper()})
     node_role = Role[role.upper()]
+    microk8s_channel = snap.config.get('snap.channel.microk8s')
+    juju_channel = snap.config.get('snap.channel.juju')
 
     LOG.debug(f'Initialising: auto {auto}, role {role}')
-
-    cloud = snap.config.get('control-plane.cloud')
-    model = snap.config.get('control-plane.model')
-    bundle: Path = snap.paths.common / 'etc' / 'bundles' / 'control-plane.yaml'
 
     plan = []
 
     if node_role.is_control_node():
-        plan.append(juju.EnsureJujuInstalled())
-        plan.append(microk8s.EnsureMicrok8sInstalled())
+        plan.append(juju.EnsureJujuInstalled(channel=juju_channel))
+        plan.append(microk8s.EnsureMicrok8sInstalled(channel=microk8s_channel))
         plan.append(microk8s.EnableHighAvailability())
         plan.append(microk8s.EnableDNS())
         plan.append(microk8s.EnableStorage())
         plan.append(microk8s.EnableMetalLB())
-        plan.append(juju.BootstrapJujuStep(cloud=cloud))
-        plan.append(juju.CreateModelStep(model))
-        plan.append(juju.DeployBundleStep(model, bundle))
+        sudo_user = os.environ.get("SUDO_USER")
+        LOG.debug(f'Enabling microk8s access to {sudo_user}')
+        if sudo_user:
+            plan.append(microk8s.EnableAccessToUser(sudo_user))
 
     if node_role.is_compute_node():
         LOG.debug('This is where we would append steps for the compute node')
@@ -152,6 +152,9 @@ def init(auto: bool, role: str) -> None:
     #     click.echo('Hypervisor has been configured')
 
     click.echo(f'Node has been initialised as a {role} node')
+    click.echo('Run following commands to bootstrap:\n'
+               'newgrp snap_microk8s\n'
+               'microstack bootstrap')
 
 
 if __name__ == '__main__':
