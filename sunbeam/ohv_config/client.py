@@ -15,7 +15,6 @@
 
 from pathlib import Path
 
-import click
 import requests
 import requests_unixsocket
 
@@ -25,8 +24,7 @@ from sunbeam.ohv_config.config import ConfigService
 class Client:
     """A client for interacting with the remote client API."""
 
-    def __init__(self, version: str = "v2",
-                 socket_path: Path = "/run/snapd.socket"):
+    def __init__(self, version: str = "v2", socket_path: Path = "/run/snapd.socket"):
         super(Client, self).__init__()
         self.__version = version
         self.__socket_path = socket_path

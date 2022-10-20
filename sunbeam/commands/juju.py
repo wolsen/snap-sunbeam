@@ -30,6 +30,56 @@ from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 LOG = logging.getLogger(__name__)
 
 
+class JujuHelper:
+    """Helper class to interact with juju"""
+
+    async def run_action(app: str, action_name: str, action_params: dict = {}) -> dict:
+        """Run actions on leader unit
+
+        :param: app: Application name
+        :param: action_name: Action to run
+        :param: action_params: Parameters to action
+        :return: dictionary of result from action
+        """
+
+        leader_unit = None
+        action_result = {}
+
+        home = os.environ.get("SNAP_REAL_HOME")
+        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
+
+        controller = Controller()
+        await controller.connect()
+
+        try:
+            # Get the reference to the specified model
+            model = await controller.get_model("openstack")
+
+            application = model.applications.get(app, None)
+            for unit in application.units:
+                if await unit.is_leader_from_status():
+                    leader_unit = unit
+                    break
+
+            if not leader_unit:
+                return action_result
+
+            LOG.debug(f"Running action {action_name} on {app} leader unit")
+            action = await leader_unit.run_action(action_name, **action_params)
+            result = await action.wait()
+            action_result = result.results
+            LOG.debug(f"Action result: {action_result}")
+
+        except ValueError as valerr:
+            LOG.error(valerr)
+        except Exception as err:
+            LOG.error(err)
+        finally:
+            await controller.disconnect()
+
+        return action_result
+
+
 class EnsureJujuInstalled(InstallSnapStep):
     """Validates the Juju is installed.
 
@@ -345,6 +395,12 @@ class DeployBundleStep(JujuBaseStep):
         )
 
         LOG.debug(f"Status of  models {self.model}: {apps_status}")
+
+        if apps_status:
+            for app, status in apps_status.items():
+                if status not in ("active", "executing"):
+                    return True
+            return False
 
         # What should be verified to return True - if all apps are active??
         return False

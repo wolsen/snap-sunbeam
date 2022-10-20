@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import logging
-
 from abc import ABC
 from http import HTTPStatus
 from urllib.parse import quote
@@ -22,7 +21,6 @@ from urllib.parse import quote
 from requests.exceptions import HTTPError
 from requests.sessions import Session
 from requests_unixsocket import DEFAULT_SCHEME
-
 from snaphelpers import Snap
 
 LOG = logging.getLogger(__name__)
@@ -30,6 +28,7 @@ LOG = logging.getLogger(__name__)
 
 class RemoteException(Exception):
     """An Exception raised when interacting with the remote snap service"""
+
     pass
 
 
@@ -54,8 +53,7 @@ class BaseService(ABC):
         :type: Session
         """
         self.__session = session
-        self._socket_path =\
-            Snap().paths.common / "hypervisor-config" / "unix.socket"
+        self._socket_path = Snap().paths.common / "hypervisor-config" / "unix.socket"
 
     def _request(self, method, path, **kwargs):
         if path.startswith("/"):
