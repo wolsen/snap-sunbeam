@@ -11,7 +11,7 @@ applications:
     scale: 1
     trust: false
   rabbitmq:
-    charm: ch:sunbeam-rabbitmq-operator
+    charm: ch:rabbitmq-k8s
     channel: edge
     scale: 1
     trust: true
@@ -58,8 +58,6 @@ applications:
     charm: ch:icey-vault-k8s
     channel: stable
     scale: 1
-    resources:
-      vault-image: vault
   horizon:
     charm: ch:horizon-k8s
     channel: edge
@@ -72,6 +70,9 @@ applications:
     trust: true
 
 relations:
+- - traefik:ingress
+  - rabbitmq:ingress
+
 - - mysql:database
   - keystone:database
 - - traefik:ingress
