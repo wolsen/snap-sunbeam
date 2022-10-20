@@ -27,7 +27,14 @@ from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
 console = Console()
-snap = Snap()
+
+
+def get_snap():
+    """Returns the current snap environment.
+
+    :return:
+    """
+    return Snap()
 
 
 class Role(enum.Enum):
@@ -52,7 +59,7 @@ class Role(enum.Enum):
         :return: True if the node should have control-plane services,
                  False otherwise
         """
-        return self.value != Role.COMPUTE
+        return self != Role.COMPUTE
 
     def is_compute_node(self) -> bool:
         """Returns True if the node requires compute services.
@@ -64,7 +71,7 @@ class Role(enum.Enum):
         :return: True if the node should run Compute services,
                  False otherwise
         """
-        return self.value != Role.CONTROL
+        return self != Role.CONTROL
 
     def is_converged_node(self) -> bool:
         """Returns True if the node requires control and compute services.
@@ -76,7 +83,7 @@ class Role(enum.Enum):
         :return: True if the node should run Control and Compute services,
                  False otherwise
         """
-        return self.value == Role.CONVERGED
+        return self == Role.CONVERGED
 
 
 @click.command()
@@ -112,6 +119,7 @@ def init(auto: bool, role: str) -> None:
             "privileges. Try again with sudo."
         )
 
+    snap = get_snap()
     snap.config.set({"node.role": role.upper()})
     node_role = Role[role.upper()]
     microk8s_channel = snap.config.get("snap.channel.microk8s")
