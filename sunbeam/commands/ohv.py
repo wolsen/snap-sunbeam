@@ -15,7 +15,7 @@
 
 import asyncio
 import logging
-import os
+import operator
 from typing import Optional
 
 from sunbeam.commands.juju import JujuHelper
@@ -30,9 +30,6 @@ class OHVBaseStep(BaseStep):
     def __init__(self, name: str, description: str):
         super().__init__(name, description)
 
-        home = os.environ.get("SNAP_REAL_HOME")
-        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
-
         self.ohv_client = ohvClient()
         self.action_result = asyncio.get_event_loop().run_until_complete(
             JujuHelper.run_action(self.app, self.action_cmd, self.action_params)
@@ -42,31 +39,18 @@ class OHVBaseStep(BaseStep):
             f"with params {self.action_params}: {self.action_result}"
         )
 
-
-class UpdateRabbitMQConfigStep(OHVBaseStep):
-    """Update Rabbitmq Config for openstack-hypervisor snap"""
-
-    def __init__(self):
-        self.app = "rabbitmq"
-        self.action_cmd = "get-service-account"
-        self.action_params = {"username": "nova", "vhost": "openstack"}
-
-        super().__init__(
-            "Update Rabbitmq Config", "Update rabbitmq url to openstack-hypervisor snap"
-        )
-
-        self.config = RabbitMQConfig(**self.action_result)
-
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-        mq_conf = self.ohv_client.config.get_rabbitmq_config()
-        LOG.debug(f"Config from openstack-hypervisor snap: {mq_conf}")
+        config_func = getattr(self.ohv_client.config, self.get_config_func_name)
+        config_from_snap = config_func()
+        LOG.debug(f"Config from openstack-hypervisor snap: {config_from_snap}")
 
-        # Compare self.config and mq_conf, can comparision method be
-        # pushed to ohv_config/config.py??
+        if operator.eq(self.config.dict(), config_from_snap.dict()):
+            return True
+
         return False
 
     def run(self, status: Optional["Status"] = None) -> Result:
@@ -76,7 +60,29 @@ class UpdateRabbitMQConfigStep(OHVBaseStep):
 
         :return:
         """
-        result = self.ohv_client.config.update_rabbitmq_config(self.config)
-        # TODO(hemanth): Is result dict? Any exceptions to be handler here?
-        LOG.debug(f"Result after updating rabbitmq config: {result}")
+        try:
+            config_func = getattr(self.ohv_client.config, self.update_config_func_name)
+            result = config_func(self.config)
+            LOG.debug(f"Result after updating rabbitmq config: {result}")
+        except Exception as e:
+            LOG.exception("Error setting config for openstack-hypervisor")
+            return Result(ResultType.FAILED, str(e))
+
         return Result(ResultType.COMPLETED)
+
+
+class UpdateRabbitMQConfigStep(OHVBaseStep):
+    """Update Rabbitmq Config for openstack-hypervisor snap"""
+
+    def __init__(self):
+        self.app = "rabbitmq"
+        self.action_cmd = "get-service-account"
+        self.action_params = {"username": "nova", "vhost": "openstack"}
+        self.get_config_func_name = "get_rabbitmq_config"
+        self.update_config_func_name = "update_rabbitmq_config"
+
+        super().__init__(
+            "Update Rabbitmq Config", "Update rabbitmq url to openstack-hypervisor snap"
+        )
+
+        self.config = RabbitMQConfig(**self.action_result)

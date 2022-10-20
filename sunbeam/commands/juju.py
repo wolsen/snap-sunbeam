@@ -33,6 +33,10 @@ LOG = logging.getLogger(__name__)
 class JujuHelper:
     """Helper class to interact with juju"""
 
+    def _update_juju_data_env():
+        home = os.environ.get("SNAP_REAL_HOME")
+        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
+
     async def run_action(app: str, action_name: str, action_params: dict = {}) -> dict:
         """Run actions on leader unit
 
@@ -45,9 +49,7 @@ class JujuHelper:
         leader_unit = None
         action_result = {}
 
-        home = os.environ.get("SNAP_REAL_HOME")
-        os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
-
+        JujuHelper._update_juju_data_env()
         controller = Controller()
         await controller.connect()
 

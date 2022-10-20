@@ -115,7 +115,7 @@ class ConfigService(service.BaseService):
         if isinstance(config, dict):
             config = IdentityServiceConfig(**config)
 
-        result = self._patch("/settings/identity", json=config.json(by_alias=True))
+        result = self._patch("/settings/identity", data=config.json(by_alias=True))
         return result
 
     def get_rabbitmq_config(self) -> RabbitMQConfig:
@@ -135,7 +135,7 @@ class ConfigService(service.BaseService):
         if isinstance(config, dict):
             config = RabbitMQConfig(**config)
 
-        result = self._patch("/settings/rabbitmq", json=config.json(by_alias=True))
+        result = self._patch("/settings/rabbitmq", data=config.json(by_alias=True))
         return result
 
     # def get_installed_snaps(
