@@ -19,7 +19,6 @@ from sunbeam.commands.init import Role
 
 
 class TestRoles(unittest.TestCase):
-
     def test_is_control(self):
         self.assertTrue(Role.CONTROL.is_control_node())
         self.assertFalse(Role.COMPUTE.is_control_node())
@@ -31,5 +30,5 @@ class TestRoles(unittest.TestCase):
         self.assertTrue(Role.CONVERGED.is_compute_node())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
