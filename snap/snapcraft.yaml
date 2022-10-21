@@ -48,7 +48,7 @@ plugs:
     # Note (wolsen): if we specify the default provider here, then snapd will
     # attempt to install it and make sure that it is available. I'm not sure
     # that we want this always (think compute-only node).
-    # default-provider: microk8s
+    #default-provider: microk8s/1.25-strict
     target: $SNAP_DATA/microk8s
 
   juju:
@@ -58,5 +58,10 @@ plugs:
     # attempt to install it automatically and make sure that it is available.
     # This requires that the snap is available as a non-classic snap in order
     # to do this. We may need to bundle in the version of Juju.
-    #default-provider: 3.0/beta
+    #default-provider: juju/3.0/candidate
     target: $SNAP/juju
+
+  hypervisor-config:
+    interface: content
+    content: openstack-hypervisor
+    target: $SNAP_COMMON

@@ -22,6 +22,7 @@ from snaphelpers import Snap
 
 from sunbeam.commands import juju
 from sunbeam.commands.init import Role
+from sunbeam.commands import ohv
 from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ def bootstrap() -> None:
 
     if node_role.is_compute_node():
         LOG.debug("This is where we would append steps for the compute node")
+        plan.append(ohv.UpdateRabbitMQConfigStep())
 
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
