@@ -21,8 +21,11 @@ from typing import Optional
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
-from sunbeam.ohv_config.config import IdentityServiceConfig, NetworkConfig
-from sunbeam.ohv_config import RabbitMQConfig
+from sunbeam.ohv_config.config import (
+    IdentityServiceConfig,
+    NetworkConfig,
+    RabbitMQConfig,
+)
 
 LOG = logging.getLogger(__name__)
 
