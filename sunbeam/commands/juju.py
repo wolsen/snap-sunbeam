@@ -179,12 +179,11 @@ class JujuBaseStep(BaseStep):
         try:
             # Get the reference to the specified model
             model = await controller.get_model(self.model)
-            await model.deploy(
+            applications = await model.deploy(
                 f"local:{self.bundle}",
                 trust=True,
             )
 
-            """
             await model.block_until(
                 lambda: all(
                     unit.workload_status == "active"
@@ -192,7 +191,6 @@ class JujuBaseStep(BaseStep):
                     for unit in application.units
                 )
             )
-            """
         except Exception as e:
             return Result(ResultType.FAILED, str(e))
         finally:
@@ -398,13 +396,19 @@ class DeployBundleStep(JujuBaseStep):
 
         LOG.debug(f"Status of  models {self.model}: {apps_status}")
 
+        # TODO(hemanth): If all apps are active, skipping deploy bundle
+        # Running bootstrap command multiple times with some apps not active
+        # is destructive as deploy_bundle kills all units of application
+        # using SIGTERM in single go where as upgrade_charm does the same
+        # one unit after another.
+        # Deploy bundle logic should change to deploy application by
+        # application checking current status instead of bundle deploy.
         if apps_status:
             for app, status in apps_status.items():
-                if status not in ("active", "executing"):
-                    return True
-            return False
+                if status != "active":
+                    return False
+            return True
 
-        # What should be verified to return True - if all apps are active??
         return False
 
     def run(self, status: Optional["Status"] = None) -> Result:

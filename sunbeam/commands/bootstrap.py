@@ -59,7 +59,9 @@ def bootstrap() -> None:
 
     if node_role.is_compute_node():
         LOG.debug("This is where we would append steps for the compute node")
+        plan.append(ohv.UpdateIdentityServiceConfigStep())
         plan.append(ohv.UpdateRabbitMQConfigStep())
+        plan.append(ohv.UpdateNetworkConfigStep())
 
     for step in plan:
         LOG.debug(f"Starting step {step.name}")

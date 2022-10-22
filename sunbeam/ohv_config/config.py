@@ -102,7 +102,7 @@ class ConfigService(service.BaseService):
         """Returns the identity service configuration."""
 
         identity_config = self._get("/settings/identity")
-        return identity_config
+        return IdentityServiceConfig.parse_obj(identity_config)
 
     def update_identity_config(
         self, config: typing.Union[IdentityServiceConfig, dict]
@@ -136,6 +136,26 @@ class ConfigService(service.BaseService):
             config = RabbitMQConfig(**config)
 
         result = self._patch("/settings/rabbitmq", data=config.json(by_alias=True))
+        return result
+
+    def get_network_config(self) -> NetworkConfig:
+        """Returns the network configuration."""
+
+        network_config = self._get("/settings/network")
+        return NetworkConfig.parse_obj(network_config)
+
+    def update_network_config(
+        self, config: typing.Union[NetworkConfig, dict]
+    ) -> NetworkConfig:
+        """Updates the Network related configuration.
+
+        :param config:
+        :return:
+        """
+        if isinstance(config, dict):
+            config = NetworkConfig(**config)
+
+        result = self._patch("/settings/network", data=config.json(by_alias=True))
         return result
 
     # def get_installed_snaps(
