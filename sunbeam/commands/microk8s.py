@@ -34,7 +34,9 @@ class EnsureMicrok8sInstalled(InstallSnapStep):
 
     def __init__(self, channel: str = "latest/stable"):
         super().__init__(snap="microk8s", channel=channel)
-        self.channel = channel
+
+    def _is_classic(self, channel: str) -> bool:
+        return "strict" not in channel
 
 
 class BaseCoreMicroK8sEnableStep(BaseStep):
@@ -77,6 +79,7 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
         cmd = ["/snap/bin/microk8s", "enable", self._addon]
         if self._args:
             cmd.extend(self._args)
+
         try:
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -85,6 +88,17 @@ class BaseCoreMicroK8sEnableStep(BaseStep):
             )
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
+            if "timed out waiting" in e.stderr and self.is_skip():
+                # TODO(wolsen) work on the timeout and retry handling for the
+                #  scenario where the enablement times out. This will suffice
+                #  for now, but it'd be better to wait until it is actually done
+                #  which will require querying k8s.
+                LOG.debug(
+                    "Addon timedout enabling. Wait and see if it is enabled "
+                    "and continue on"
+                )
+                return Result(ResultType.COMPLETED)
+
             error_message = f"Error enabling microk8s add-on {self._addon}"
             LOG.exception(error_message)
             LOG.error(e.stderr)

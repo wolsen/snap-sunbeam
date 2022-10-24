@@ -148,9 +148,6 @@ def init(auto: bool, role: str) -> None:
         LOG.debug(f"Starting step {step.name}")
         message = f"{step.description} ... "
 
-        # if not auto:
-        #     step.prompt(console)
-
         with console.status(f"{step.description} ... ") as status:
             if step.is_skip(status=status):
                 LOG.debug(f"Skipping step {step.name}")
@@ -163,7 +160,7 @@ def init(auto: bool, role: str) -> None:
                 status.start()
 
             LOG.debug(f"Running step {step.name}")
-            result = step.run()
+            result = step.run(status=status)
             LOG.debug(
                 f"Finished running step {step.name}. " f"Result: {result.result_type}"
             )
@@ -174,20 +171,11 @@ def init(auto: bool, role: str) -> None:
 
         console.print(f"{message}[green]Done[/green]")
 
-    # if node_role.is_compute_node():
-    #     with console.status('Configuring hypervisor...', spinner='dots'):
-    #         LOG.debug('testing')
-    #         time.sleep(5)
-    #         LOG.debug('now sleeping for a little longer')
-    #         time.sleep(5)
-    #
-    #     click.echo('Hypervisor has been configured')
-
-    click.echo(f"Node has been initialised as a {role} node")
-    click.echo(
-        "Run following commands to bootstrap:\n"
-        "newgrp snap_microk8s\n"
-        "microstack bootstrap"
+    console.print(f"Node has been initialised as a [bold]{role}[/bold] node")
+    console.print(
+        "\nRun following commands to bootstrap:\n"
+        "  newgrp snap_microk8s\n"
+        "  microstack bootstrap"
     )
 
 

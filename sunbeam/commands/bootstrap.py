@@ -20,9 +20,9 @@ import click
 from rich.console import Console
 from snaphelpers import Snap
 
-from sunbeam.commands import juju
+from sunbeam import utils
+from sunbeam.commands import juju, ohv
 from sunbeam.commands.init import Role
-from sunbeam.commands import ohv
 from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
@@ -40,6 +40,12 @@ def bootstrap() -> None:
     is COMPUTE.
     """
     # context = click.get_current_context(silent=True)
+
+    if utils.has_superuser_privileges():
+        raise click.UsageError(
+            "The bootstrap command should not be run with root "
+            "privileges. Try again without sudo."
+        )
 
     role = snap.config.get("node.role")
     node_role = Role[role.upper()]
@@ -71,28 +77,18 @@ def bootstrap() -> None:
                 LOG.debug(f"Skipping step {step.name}")
                 console.print(f"{message}[green]Done[/green]")
                 continue
-            else:
-                LOG.debug(f"Running step {step.name}")
-                result = step.run()
-                LOG.debug(
-                    f"Finished running step {step.name}. "
-                    f"Result: {result.result_type}"
-                )
+
+            LOG.debug(f"Running step {step.name}")
+            result = step.run()
+            LOG.debug(
+                f"Finished running step {step.name}. " f"Result: {result.result_type}"
+            )
 
         if result.result_type == ResultType.FAILED:
             console.print(f"{message}[red]Failed[/red]")
             raise click.ClickException(result.message)
 
         console.print(f"{message}[green]Done[/green]")
-
-    # if node_role.is_compute_node():
-    #     with console.status('Configuring hypervisor...', spinner='dots'):
-    #         LOG.debug('testing')
-    #         time.sleep(5)
-    #         LOG.debug('now sleeping for a little longer')
-    #         time.sleep(5)
-    #
-    #     click.echo('Hypervisor has been configured')
 
     click.echo(f"Node has been bootstrapped as a {role} node")
 
