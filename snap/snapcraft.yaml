@@ -36,12 +36,6 @@ parts:
     plugin: dump
     source: bundles/
 
-  bin:
-    source: bin/
-    plugin: dump
-    organize:
-      '*': bin/
-
 plugs:
   peers:
     interface: content
