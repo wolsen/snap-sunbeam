@@ -55,6 +55,7 @@ def status(wait_ready: bool, timeout: int) -> None:
     else:
         plan.append(juju.ModelStatusStep(model))
 
+    bootstrapped = False
     status_overall = []
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
@@ -62,26 +63,28 @@ def status(wait_ready: bool, timeout: int) -> None:
         with console.status(f"{step.description} ... "):
             if step.is_skip():
                 LOG.debug(f"Skipping step {step.name}")
-                console.print(f"{message}[green]Done[/green]")
                 continue
-            else:
-                LOG.debug(f"Running step {step.name}")
-                result = step.run()
-                if result.result_type == ResultType.COMPLETED:
-                    if isinstance(result.message, list):
-                        status_overall.extend(result.message)
-                    elif isinstance(result.message, str):
-                        status_overall.append(result.message)
-                LOG.debug(
-                    f"Finished running step {step.name}. "
-                    f"Result: {result.result_type}"
-                )
+
+            bootstrapped = True
+            LOG.debug(f"Running step {step.name}")
+            result = step.run()
+            if result.result_type == ResultType.COMPLETED:
+                if isinstance(result.message, list):
+                    status_overall.extend(result.message)
+                elif isinstance(result.message, str):
+                    status_overall.append(result.message)
+            LOG.debug(
+                f"Finished running step {step.name}. " f"Result: {result.result_type}"
+            )
 
         if result.result_type == ResultType.FAILED:
             console.print(f"{message}[red]Failed[/red]")
             raise click.ClickException(result.message)
 
     console.print("Microstack status:")
+    role = snap.config.get("node.role")
+    console.print(f"Bootstrapped: {bootstrapped}")
+    console.print(f"Node role: {role.lower()}")
     for message in status_overall:
         if "active" in message:
             console.print(f"[green]{message}[/green]")

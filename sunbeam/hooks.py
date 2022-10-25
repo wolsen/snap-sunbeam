@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "control-plane.cloud": "microk8s",
     "control-plane.model": "openstack",
     "node.role": "CONVERGED",
-    "snap.channel.juju": "3.0/beta",
+    "snap.channel.juju": "3.0/stable",
     "snap.channel.microk8s": "1.25-strict/stable",
 }
 

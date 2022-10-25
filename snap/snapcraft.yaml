@@ -36,10 +36,11 @@ parts:
     plugin: dump
     source: bundles/
 
-  curl:
-    plugin: nil
-    stage-packages:
-      - curl
+  bin:
+    source: bin/
+    plugin: dump
+    organize:
+      '*': bin/
 
 plugs:
   peers:

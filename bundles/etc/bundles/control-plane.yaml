@@ -2,9 +2,11 @@ bundle: kubernetes
 applications:
   traefik:
     charm: ch:traefik-k8s
-    channel: edge
+    channel: 1.0/stable
     scale: 1
     trust: true
+    storage:
+      configurations: 10M
   mysql:
     charm: ch:mysql-k8s
     channel: edge

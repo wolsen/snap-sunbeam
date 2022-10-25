@@ -17,13 +17,14 @@ import asyncio
 import json
 import logging
 import os
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
 from typing import Optional
 
 from juju.controller import Controller
 from semver import VersionInfo
+from snaphelpers import Snap
 
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 
@@ -211,6 +212,9 @@ class EnsureJujuInstalled(InstallSnapStep):
     def __init__(self, channel: str = "latest/stable"):
         super().__init__(snap="juju", channel=channel)
 
+    def _is_classic(self, channel: str) -> bool:
+        return channel.split("/")[0].startswith("2.9")
+
 
 class BootstrapJujuStep(BaseStep):
     """Bootstraps the Juju controller."""
@@ -325,6 +329,14 @@ class BootstrapJujuStep(BaseStep):
                 return Result(ResultType.FAILED, "Unable to bootstrap to microk8s")
 
             cmd = ["/snap/bin/juju", "bootstrap", self.cloud]
+
+            # TODO(wolsen) probably want to refactor this into a proper quirks type
+            #  thing.
+            snap = Snap()
+            juju_channel = snap.config.get("snap.channel.juju")
+            if juju_channel.startswith("2.9"):
+                cmd.extend(["--agent-version", "2.9.34"])
+
             LOG.debug(f'Running command {" ".join(cmd)}')
             process = subprocess.run(cmd, capture_output=True, text=True, check=True)
             LOG.debug(

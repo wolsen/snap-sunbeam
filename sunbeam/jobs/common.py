@@ -150,6 +150,15 @@ class InstallSnapStep(BaseStep):
         self.snap_client = SnapClient()
         self._installed_version = None
 
+    def _is_classic(self, channel: str) -> bool:
+        """Determines if the snap should be installed using classic confinement.
+
+        :param channel: the channel that the snap is being installed from
+        :type channel: str
+        :return: True if the snap should be installed in classic mode, False otherwise
+        """
+        return False
+
     def _is_valid_version(self, version: VersionInfo) -> bool:
         """Determines if a currently installed version of the snap is okay.
 
@@ -271,7 +280,7 @@ class InstallSnapStep(BaseStep):
                     f"Installing {self.snap} from channel " f"{self.channel} ..."
                 )
             change_id = self.snap_client.snaps.install(
-                self.snap, self.channel, classic=False
+                self.snap, self.channel, classic=self._is_classic(self.channel)
             )
             LOG.debug(f"Initiated installation with change {change_id}")
             self.snap_client.changes.wait_until(
