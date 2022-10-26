@@ -155,7 +155,7 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
                 # TODO(hemanth): Username should be modified with hostname of
                 # each hypervisor prefixed with nova-
                 "action_params": {"username": "nova-hypervisor"},
-                "map_alias": {"public-endpoint": "auth-url", "region": "region-name"},
+                "map_alias": {"public-endpoint": "auth-url", "region": "region_name"},
                 "attributes_to_update": {
                     "auth-url",
                     "username",
@@ -163,7 +163,7 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
                     "user-domain-name",
                     "project-name",
                     "project-domain-name",
-                    "region",
+                    "region_name",
                 },
             }
         ]
