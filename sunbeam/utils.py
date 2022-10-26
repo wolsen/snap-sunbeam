@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+import binascii
 import os
+import typing
 
+from netifaces import interfaces, ifaddresses, AF_INET
 from semver import VersionInfo
 
 UNKNOWN_VERSION = VersionInfo(0, 0, 0)
@@ -67,3 +71,35 @@ def parse_version(version: str) -> VersionInfo:
 
         # Not a known condition, let's just re-raise.
         raise
+
+
+def get_local_ip_address() -> typing.List:
+    """Get IP address of the local host."""
+    addresses = []
+    for ifaceName in interfaces():
+        address = [
+            i["addr"]
+            for i in ifaddresses(ifaceName).setdefault(AF_INET, [])
+            if "addr" in i
+        ]
+        addresses.extend(address)
+
+    if "127.0.0.1" in addresses:
+        addresses.remove("127.0.0.1")
+
+    return addresses
+
+
+def encode_tls(cert_or_key: str) -> bytes:
+    """Encode key or cert.
+
+    :param cert: key/cert
+    :type cert: str
+    :return: base64 encoded data or None
+    :rtype: str
+    """
+    try:
+        cert_in_bytes = base64.b64encode(bytes(cert_or_key, "utf-8"))
+        return cert_in_bytes.decode()
+    except (binascii.Error, TypeError):
+        return cert_or_key

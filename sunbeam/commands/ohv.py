@@ -21,11 +21,7 @@ from typing import Optional
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
-from sunbeam.ohv_config.config import (
-    IdentityServiceConfig,
-    NetworkConfig,
-    RabbitMQConfig,
-)
+from sunbeam import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -34,11 +30,9 @@ class OHVBaseStep(BaseStep):
     def __init__(self, name: str, description: str):
         super().__init__(name, description)
 
-        # Default values to None
-        self.app = None
-        self.action_cmd = None
-        self.action_params = {}
-        self.config_obj = None
+        self.action_info = []
+        self.action_results = []
+        self.config_from_snap = None
         self.get_config_func_name = None
         self.update_config_func_name = None
 
@@ -46,47 +40,82 @@ class OHVBaseStep(BaseStep):
         # openstack-hypervisor configuration keys
         self.map_alias = {}
 
+    def _apply_handlers(self, config: dict) -> dict:
+        """Placeholder to do any special handling"""
+
+        return config
+
+    def _apply_action_handlers(self) -> bool:
+        """Update config retrieved from juju actions"""
+        skip = True
+
+        # Get configuration from openstack control plane
+        for action in self.action_info:
+            app = action.get("app", None)
+            action_cmd = action.get("action_cmd", None)
+            action_params = action.get("action_params", {})
+            map_alias = action.get("map_alias", {})
+            attributes_to_update = action.get("attributes_to_update", [])
+
+            action_result = asyncio.get_event_loop().run_until_complete(
+                asyncio.gather(JujuHelper.run_action(app, action_cmd, action_params))
+            )
+            if isinstance(action_result, list):
+                action_result = action_result[0]
+
+            LOG.debug(
+                f"Action result for app {app} action {action_cmd} "
+                f"with params {action_params}: {action_result}"
+            )
+
+            # The keys from action result dict and openstack-hypervisor config
+            # might be diferent, so add the mapping keys to action result
+            # For eg.,if action_result returns 'public-endpoint':'http://localhost:1234'
+            # and corresponding openstack-hypervisor key is auth-url, add
+            # 'auth-url':'http://localhost:1234' to the action result.
+            missing_keys = {
+                v: action_result[k] for k, v in map_alias.items() if k in action_result
+            }
+            action_result.update(missing_keys)
+            LOG.debug(f"Config after adding {missing_keys}: {action_result}")
+
+            action_result = self._apply_handlers(action_result)
+            LOG.debug(f"Config after applying handlers: {action_result}")
+            self.action_results.append(action_result)
+
+            for attribute in attributes_to_update:
+
+                value_from_action = action_result.get(attribute, None)
+                value_from_config = vars(self.config_from_snap).get(attribute, None)
+                if not operator.eq(value_from_config, value_from_action):
+                    setattr(
+                        self.config_from_snap,
+                        attribute.replace("-", "_"),
+                        value_from_action,
+                    )
+                    skip = False
+
+        return skip
+
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
 
         :return: True if the Step should be skipped, False otherwise
         """
-
-        # Get configuration from openstack control plane
-        self.ohv_client = ohvClient()
-        self.action_result = asyncio.get_event_loop().run_until_complete(
-            JujuHelper.run_action(self.app, self.action_cmd, self.action_params)
-        )
-        LOG.debug(
-            f"Action result for app {self.app} action {self.action_cmd} "
-            f"with params {self.action_params}: {self.action_result}"
-        )
-
-        # The keys from action result dict and openstack-hypervisor config
-        # might be diferent, so add the mapping keys to action result
-        # For eg., if action_result returns 'public-endpoint':'http://localhost:1234'
-        # and corresponding openstack-hypervisor key is auth-url, add
-        # 'auth-url':'http://localhost:1234' to the action result.
-        missing_keys = {
-            v: self.action_result[k]
-            for k, v in self.map_alias.items()
-            if k in self.action_result
-        }
-        self.action_result.update(missing_keys)
-
-        self.config = self.config_obj.parse_obj(self.action_result)
-        LOG.debug(f"Config from openstack control plane: {self.config}")
+        skip = True
 
         # Get configuration from openstack-hypervisor snap
+        self.ohv_client = ohvClient()
         get_config_func = getattr(self.ohv_client.config, self.get_config_func_name)
-        config_from_snap = get_config_func()
-        LOG.debug(f"Config from openstack-hypervisor snap: {config_from_snap}")
+        self.config_from_snap = get_config_func()
+        LOG.debug(f"Config from openstack-hypervisor snap: {self.config_from_snap}")
 
-        # Compare both configs and skip if they are equal
-        if operator.eq(self.config.dict(), config_from_snap.dict()):
-            return True
+        skip = self._apply_action_handlers()
 
-        return False
+        LOG.debug(
+            f"Config to apply on openstack-hypervisor snap: " f"{self.config_from_snap}"
+        )
+        return skip
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
@@ -95,12 +124,13 @@ class OHVBaseStep(BaseStep):
 
         :return:
         """
-        if self.action_result.get("return-code", 1) == 1:
-            return Result(ResultType.FAILED, "Juju action returned error")
+        for action_result in self.action_results:
+            if action_result.get("return-code", 1) == 1:
+                return Result(ResultType.FAILED, "Juju action returned error")
 
         try:
             config_func = getattr(self.ohv_client.config, self.update_config_func_name)
-            result = config_func(self.config)
+            result = config_func(self.config_from_snap)
             LOG.debug(f"Result after updating rabbitmq config: {result}")
         except Exception as e:
             LOG.exception("Error setting config for openstack-hypervisor")
@@ -118,17 +148,28 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
             "Update identity settings to openstack-hypervisor snap",
         )
 
-        self.app = "keystone"
-        self.action_cmd = "get-service-account"
-        # TODO(hemanth): Username should be modified with hostname of
-        # each hypervisor prefixed with nova-
-        self.action_params = {"username": "nova-hypervisor"}
+        self.action_info = [
+            {
+                "app": "keystone",
+                "action_cmd": "get-service-account",
+                # TODO(hemanth): Username should be modified with hostname of
+                # each hypervisor prefixed with nova-
+                "action_params": {"username": "nova-hypervisor"},
+                "map_alias": {"public-endpoint": "auth-url", "region": "region-name"},
+                "attributes_to_update": {
+                    "auth-url",
+                    "username",
+                    "password",
+                    "user-domain-name",
+                    "project-name",
+                    "project-domain-name",
+                    "region",
+                },
+            }
+        ]
 
-        self.config_obj = IdentityServiceConfig()
         self.get_config_func_name = "get_identity_config"
         self.update_config_func_name = "update_identity_config"
-        # Map the keys from Action result to openstack-hypervisor config keys
-        self.map_alias = {"public-endpoint": "auth-url", "region": "region-name"}
 
 
 class UpdateRabbitMQConfigStep(OHVBaseStep):
@@ -139,11 +180,16 @@ class UpdateRabbitMQConfigStep(OHVBaseStep):
             "Update Rabbitmq Config", "Update rabbitmq url to openstack-hypervisor snap"
         )
 
-        self.app = "rabbitmq"
-        self.action_cmd = "get-service-account"
-        self.action_params = {"username": "nova", "vhost": "openstack"}
+        self.action_info = [
+            {
+                "app": "rabbitmq",
+                "action_cmd": "get-service-account",
+                "action_params": {"username": "nova", "vhost": "openstack"},
+                "map_alias": {},
+                "attributes_to_update": {"url"},
+            }
+        ]
 
-        self.config_obj = RabbitMQConfig()
         self.get_config_func_name = "get_rabbitmq_config"
         self.update_config_func_name = "update_rabbitmq_config"
 
@@ -156,11 +202,45 @@ class UpdateNetworkConfigStep(OHVBaseStep):
             "Update Network Config", "Update ovn-sb url to openstack-hypervisor snap"
         )
 
-        self.app = "ovn-relay"
-        self.action_cmd = "get-southbound-db-url"
-        self.action_params = {}
+        sans = utils.get_local_ip_address()
+        sans_str = " ".join(sans)
 
-        self.config_obj = NetworkConfig()
+        self.action_info = [
+            {
+                "app": "ovn-relay",
+                "action_cmd": "get-southbound-db-url",
+                "action_params": {},
+                "map_alias": {"url": "ovn-sb-connection"},
+                "attributes_to_update": ["ovn-sb-connection"],
+            },
+            {
+                "app": "vault",
+                "action_cmd": "generate-certificate",
+                "action_params": {
+                    "cn": "nova-hypervisor",
+                    "sans": sans_str,
+                    "type": "client",
+                },
+                "map_alias": {
+                    "private-key": "ovn-key",
+                    "certificate": "ovn-cert",
+                    "issuing-ca": "ovn-cacert",
+                },
+                "attributes_to_update": ["ovn-key", "ovn-cert", "ovn-cacert"],
+            },
+        ]
+
         self.get_config_func_name = "get_network_config"
         self.update_config_func_name = "update_network_config"
-        self.map_alias = {"url": "ovn-sb-connection"}
+
+    def _apply_handlers(self, config: dict) -> dict:
+        """Encode TLS certs and keys"""
+
+        if "ovn-key" in config:
+            config["ovn-key"] = utils.encode_tls(config["ovn-key"])
+        if "ovn-cert" in config:
+            config["ovn-cert"] = utils.encode_tls(config["ovn-cert"])
+        if "ovn-cacert" in config:
+            config["ovn-cacert"] = utils.encode_tls(config["ovn-cacert"])
+
+        return config

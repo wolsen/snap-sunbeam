@@ -12,4 +12,7 @@ requests-unixsocket # Apache 2
 pydantic # MIT
 semver # BSD-3
 
+# Used for getting local ip address
+netifaces
+
 #git+https://github.com/openstack-charmers/zaza.git#egg=zaza

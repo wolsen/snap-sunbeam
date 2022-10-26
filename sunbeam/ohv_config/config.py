@@ -78,6 +78,9 @@ class NetworkConfig(BaseModel):
     ovn_sb_connection: str = Field(
         alias="ovn-sb-connection", default="tcp:127.0.0.1:6642"
     )
+    ovn_key: Optional[str] = Field(alias="ovn-key")
+    ovn_cert: Optional[str] = Field(alias="ovn-cert")
+    ovn_cacert: Optional[str] = Field(alias="ovn-cacert")
     enable_gateway: bool = Field(alias="enable-gateway", default=False)
     ip_address: Optional[IPvAnyAddress] = Field(alias="network.ip-address")
 

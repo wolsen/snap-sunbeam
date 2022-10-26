@@ -72,11 +72,11 @@ class JujuHelper:
 
     async def get_model_status(model: str, timeout: int) -> dict:
         """Get juju status for the model"""
-        JujuHelper._update_juju_data_env()
-        controller = Controller()
-        await controller.connect()
-
         try:
+            JujuHelper._update_juju_data_env()
+            controller = Controller()
+            await controller.connect()
+
             # Get the reference to the specified model
             model = await controller.get_model(model)
             start = time.time()
@@ -111,11 +111,11 @@ class JujuHelper:
 
     async def deploy_bundle(model: str, bundle: str) -> bool:
         """Deploy bundle"""
-        JujuHelper._update_juju_data_env()
-        controller = Controller()
-        await controller.connect()
-
         try:
+            JujuHelper._update_juju_data_env()
+            controller = Controller()
+            await controller.connect()
+
             # Get the reference to the specified model
             model = await controller.get_model(model)
             applications = await model.deploy(
@@ -150,11 +150,11 @@ class JujuHelper:
         leader_unit = None
         action_result = {}
 
-        JujuHelper._update_juju_data_env()
-        controller = Controller()
-        await controller.connect()
-
         try:
+            JujuHelper._update_juju_data_env()
+            controller = Controller()
+            await controller.connect()
+
             # Get the reference to the specified model
             model = await controller.get_model("openstack")
 
