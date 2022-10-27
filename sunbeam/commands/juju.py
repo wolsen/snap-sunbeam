@@ -34,56 +34,56 @@ LOG = logging.getLogger(__name__)
 class JujuHelper:
     """Helper class to interact with juju"""
 
-    def _update_juju_data_env():
+    def __init__(self):
         home = os.environ.get("SNAP_REAL_HOME")
         os.environ["JUJU_DATA"] = f"{home}/.local/share/juju"
 
-    async def add_model(model: str) -> bool:
+        self.controller = None
+
+    async def disconnect_controller(self):
+        await self.controller.disconnect()
+
+    async def add_model(self, model: str) -> bool:
         """Add model to juju"""
         try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
 
-            await controller.add_model(model)
+            await self.controller.add_model(model)
             return True
         except Exception as e:
             LOG.error(f"Error in adding model {model}: {str(e)}")
             return False
-        finally:
-            await controller.disconnect()
 
-    async def get_models() -> dict:
+    async def get_models(self) -> dict:
         """Get all models"""
         try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
 
-            models = await controller.list_models()
-            await controller.disconnect()
+            models = await self.controller.list_models()
             return models
         except Exception as e:
             LOG.info(f"Error in getting models: {str(e)}")
             return []
 
-        finally:
-            await controller.disconnect()
-
-    async def get_model_status(model: str, timeout: int) -> dict:
+    async def get_model_status(self, model: str, timeout: int) -> dict:
         """Get juju status for the model"""
+        apps_status = {}
+
         try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
 
             # Get the reference to the specified model
-            model = await controller.get_model(model)
+            model = await self.controller.get_model(model)
             start = time.time()
             apps = set(model.applications.keys())
             apps_count = len(apps)
             apps_active = set()
-            apps_status = {}
 
             while True:
                 # now we sleep to allow progress to be made in the
@@ -99,25 +99,26 @@ class JujuHelper:
                             apps_active.add(application)
 
                 if apps_count == len(apps_active):
-                    return apps_status
+                    break
 
                 if timed_out:
                     if timeout:
                         LOG.info("TIMEOUT: Workloads didn't reach acceptable status")
-                    return apps_status
+                    break
+        except Exception as e:
+            LOG.info(f"Error in getting model status: {str(e)}")
 
-        finally:
-            await controller.disconnect()
+        return apps_status
 
-    async def deploy_bundle(model: str, bundle: str) -> bool:
+    async def deploy_bundle(self, model: str, bundle: str) -> bool:
         """Deploy bundle"""
         try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
 
             # Get the reference to the specified model
-            model = await controller.get_model(model)
+            model = await self.controller.get_model(model)
             applications = await model.deploy(
                 f"local:{bundle}",
                 trust=True,
@@ -135,10 +136,26 @@ class JujuHelper:
         except Exception as e:
             LOG.error(f"Error in deploying bundle: {str(e)}")
             return False
-        finally:
-            await controller.disconnect()
 
-    async def run_action(app: str, action_name: str, action_params: dict = {}) -> dict:
+    async def destroy_model(self, model: str) -> bool:
+        """Destroy the model"""
+        try:
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
+
+            await self.controller.destroy_models(
+                model, destroy_storage=True, force=True, max_wait=0
+            )
+
+            return True
+        except Exception as e:
+            LOG.error(f"Error in destroying model: {str(e)}")
+            return False
+
+    async def run_action(
+        self, model: str, app: str, action_name: str, action_params: dict = {}
+    ) -> dict:
         """Run actions on leader unit
 
         :param: app: Application name
@@ -151,12 +168,12 @@ class JujuHelper:
         action_result = {}
 
         try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
+            if not self.controller:
+                self.controller = Controller()
+                await self.controller.connect()
 
             # Get the reference to the specified model
-            model = await controller.get_model("openstack")
+            model = await self.controller.get_model(model)
 
             application = model.applications.get(app, None)
             for unit in application.units:
@@ -177,27 +194,8 @@ class JujuHelper:
             LOG.error(valerr)
         except Exception as err:
             LOG.error(err)
-        finally:
-            await controller.disconnect()
 
         return action_result
-
-    async def destroy_model(model: str) -> bool:
-        """Destroy the model"""
-        try:
-            JujuHelper._update_juju_data_env()
-            controller = Controller()
-            await controller.connect()
-            await controller.destroy_models(
-                model, destroy_storage=True, force=True, max_wait=0
-            )
-
-            return True
-        except Exception as e:
-            LOG.error(f"Error in destroying model: {str(e)}")
-            return False
-        finally:
-            await controller.disconnect()
 
 
 class EnsureJujuInstalled(InstallSnapStep):
@@ -352,8 +350,9 @@ class BootstrapJujuStep(BaseStep):
 class CreateModelStep(BaseStep):
     """Creates the specified model name."""
 
-    def __init__(self, model: str):
+    def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__("Create model", "Creating model")
+        self.jhelper = jhelper
         self.model = model
 
     def is_skip(self, status: Optional["Status"] = None):
@@ -362,7 +361,7 @@ class CreateModelStep(BaseStep):
         :return: True if the Step should be skipped, False otherwise
         """
         LOG.debug("Getting models information from juju")
-        models = asyncio.get_event_loop().run_until_complete(JujuHelper.get_models())
+        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
         LOG.debug(f"Found juju models: {models}")
 
         if self.model in models:
@@ -381,7 +380,7 @@ class CreateModelStep(BaseStep):
         """
         LOG.debug(f"Adding model: {self.model}")
         result = asyncio.get_event_loop().run_until_complete(
-            JujuHelper.add_model(self.model)
+            self.jhelper.add_model(self.model)
         )
 
         if result:
@@ -393,9 +392,10 @@ class CreateModelStep(BaseStep):
 class DeployBundleStep(BaseStep):
     """Creates the specified model name."""
 
-    def __init__(self, model: str, bundle: Path):
+    def __init__(self, jhelper: JujuHelper, model: str, bundle: Path):
         super().__init__("Deploy bundle", "Deploy bundle")
 
+        self.jhelper = jhelper
         self.model = model
         self.bundle = bundle
         self.options = ["--trust"]
@@ -407,7 +407,7 @@ class DeployBundleStep(BaseStep):
         """
 
         apps_status = asyncio.get_event_loop().run_until_complete(
-            JujuHelper.get_model_status(self.model, timeout=0)
+            self.jhelper.get_model_status(self.model, timeout=0)
         )
 
         LOG.debug(f"Status of  models {self.model}: {apps_status}")
@@ -435,7 +435,7 @@ class DeployBundleStep(BaseStep):
         :return:
         """
         result = asyncio.get_event_loop().run_until_complete(
-            JujuHelper.deploy_bundle(self.model, self.bundle)
+            self.jhelper.deploy_bundle(self.model, self.bundle)
         )
 
         if result:
@@ -447,9 +447,10 @@ class DeployBundleStep(BaseStep):
 class DestroyModelStep(BaseStep):
     """Destroys the specified model name."""
 
-    def __init__(self, model: str):
+    def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__("Destroy model", "Destroy model")
 
+        self.jhelper = jhelper
         self.model = model
         self.options = ["--destroy-storage", "-y"]
 
@@ -459,7 +460,7 @@ class DestroyModelStep(BaseStep):
         :return: True if the Step should be skipped, False otherwise
         """
         LOG.debug("Getting models information from juju")
-        models = asyncio.get_event_loop().run_until_complete(JujuHelper.get_models())
+        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
         LOG.debug(f"Found juju models: {models}")
 
         LOG.debug(self.model)
@@ -476,7 +477,7 @@ class DestroyModelStep(BaseStep):
         :return:
         """
         result = asyncio.get_event_loop().run_until_complete(
-            JujuHelper.destroy_model(self.model)
+            self.jhelper.destroy_model(self.model)
         )
 
         if result:
@@ -489,10 +490,15 @@ class ModelStatusStep(BaseStep):
     """Get the status of the specified model name."""
 
     def __init__(
-        self, model: str, states: Optional[Path] = None, timeout: Optional[int] = None
+        self,
+        jhelper: JujuHelper,
+        model: str,
+        states: Optional[Path] = None,
+        timeout: Optional[int] = None,
     ):
         super().__init__("Model status", "Status of the apps in the model")
 
+        self.jhelper = jhelper
         self.model = model
         self.states = states
         self.timeout = timeout or 0
@@ -503,7 +509,7 @@ class ModelStatusStep(BaseStep):
         :return: True if the Step should be skipped, False otherwise
         """
         LOG.debug("Getting models information from juju")
-        models = asyncio.get_event_loop().run_until_complete(JujuHelper.get_models())
+        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
         LOG.debug(f"juju models: {models}")
 
         if self.model in models:
@@ -520,7 +526,7 @@ class ModelStatusStep(BaseStep):
         """
         try:
             apps_status = asyncio.get_event_loop().run_until_complete(
-                JujuHelper.get_model_status(self.model, timeout=self.timeout)
+                self.jhelper.get_model_status(self.model, timeout=self.timeout)
             )
 
             status_message = []

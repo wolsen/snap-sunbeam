@@ -42,6 +42,9 @@ class OHVBaseStep(BaseStep):
         # openstack-hypervisor configuration keys
         self.map_alias = {}
 
+        self.jhelper = None
+        self.model = None
+
     def _apply_handlers(self, config: dict) -> dict:
         """Placeholder to do any special handling"""
 
@@ -60,10 +63,8 @@ class OHVBaseStep(BaseStep):
             attributes_to_update = action.get("attributes_to_update", [])
 
             action_result = asyncio.get_event_loop().run_until_complete(
-                asyncio.gather(JujuHelper.run_action(app, action_cmd, action_params))
+                self.jhelper.run_action(self.model, app, action_cmd, action_params)
             )
-            if isinstance(action_result, list):
-                action_result = action_result[0]
 
             LOG.debug(
                 f"Action result for app {app} action {action_cmd} "
@@ -144,11 +145,13 @@ class OHVBaseStep(BaseStep):
 class UpdateIdentityServiceConfigStep(OHVBaseStep):
     """Update Identity config for openstack-hypervisor snap"""
 
-    def __init__(self):
+    def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
             "Update Identity Config",
             "Update identity settings to openstack-hypervisor snap",
         )
+        self.jhelper = jhelper
+        self.model = model
 
         hostname = utils.get_hostname()
         self.action_info = [
@@ -178,10 +181,13 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
 class UpdateRabbitMQConfigStep(OHVBaseStep):
     """Update Rabbitmq Config for openstack-hypervisor snap"""
 
-    def __init__(self):
+    def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
             "Update Rabbitmq Config", "Update rabbitmq url to openstack-hypervisor snap"
         )
+
+        self.jhelper = jhelper
+        self.model = model
 
         self.action_info = [
             {
@@ -200,12 +206,15 @@ class UpdateRabbitMQConfigStep(OHVBaseStep):
 class UpdateNetworkConfigStep(OHVBaseStep):
     """Update Network Config for openstack-hypervisor snap"""
 
-    def __init__(self):
+    def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
             "Update Network Config", "Update ovn-sb url to openstack-hypervisor snap"
         )
 
         snap = Snap()
+
+        self.jhelper = jhelper
+        self.model = model
 
         # TODO(hemanth): cn needs to be updated from cluster
         sans = ""
