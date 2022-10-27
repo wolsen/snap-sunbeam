@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -47,13 +48,21 @@ def status(wait_ready: bool, timeout: int) -> None:
     states_path: Path = snap.paths.common / "etc" / "bundles" / "states.json"
     with open(states_path) as states_data:
         states = json.load(states_data)
+    jhelper = juju.JujuHelper()
 
     plan = []
 
     if wait_ready:
-        plan.append(juju.ModelStatusStep(model, states, timeout))
+        plan.append(
+            juju.ModelStatusStep(
+                jhelper=jhelper, model=model, states=states, timeout=timeout
+            )
+        )
     else:
-        plan.append(juju.ModelStatusStep(model))
+        # from sunbeam.commands import ohv
+        # plan.append(ohv.UpdateRabbitMQConfigStep(jhelper=jhelper, model=model))
+        # plan.append(ohv.UpdateNetworkConfigStep(jhelper=jhelper, model=model))
+        plan.append(juju.ModelStatusStep(jhelper=jhelper, model=model))
 
     bootstrapped = False
     status_overall = []
@@ -90,3 +99,5 @@ def status(wait_ready: bool, timeout: int) -> None:
             console.print(f"[green]{message}[/green]")
         else:
             console.print(f"[red]{message}[/red]")
+
+    asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())

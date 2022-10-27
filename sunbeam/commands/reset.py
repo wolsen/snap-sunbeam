@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 
 import click
@@ -47,6 +48,7 @@ def reset() -> None:
     node_role = Role[role.upper()]
 
     model = snap.config.get("control-plane.model")
+    jhelper = juju.JujuHelper()
 
     plan = []
 
@@ -58,7 +60,7 @@ def reset() -> None:
         # FIXME: This needs to be done only in non HA
         # HA case, remove microk8s?? what if microk8s already
         # exists and getting used for other purposes
-        plan.append(juju.DestroyModelStep(model))
+        plan.append(juju.DestroyModelStep(jhelper=jhelper, model=model))
 
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
@@ -81,6 +83,8 @@ def reset() -> None:
             raise click.ClickException(result.message)
 
         console.print(f"{message}[green]Done[/green]")
+
+    asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
 
 
 if __name__ == "__main__":

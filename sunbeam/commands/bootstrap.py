@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -56,18 +57,20 @@ def bootstrap() -> None:
     model = snap.config.get("control-plane.model")
     bundle: Path = snap.paths.common / "etc" / "bundles" / "control-plane.yaml"
 
+    jhelper = juju.JujuHelper()
+
     plan = []
 
     if node_role.is_control_node():
         plan.append(juju.BootstrapJujuStep(cloud=cloud))
-        plan.append(juju.CreateModelStep(model))
-        plan.append(juju.DeployBundleStep(model, bundle))
+        plan.append(juju.CreateModelStep(jhelper=jhelper, model=model))
+        plan.append(juju.DeployBundleStep(jhelper=jhelper, model=model, bundle=bundle))
 
     if node_role.is_compute_node():
         LOG.debug("This is where we would append steps for the compute node")
-        plan.append(ohv.UpdateIdentityServiceConfigStep())
-        plan.append(ohv.UpdateRabbitMQConfigStep())
-        plan.append(ohv.UpdateNetworkConfigStep())
+        plan.append(ohv.UpdateIdentityServiceConfigStep(jhelper=jhelper, model=model))
+        plan.append(ohv.UpdateRabbitMQConfigStep(jhelper=jhelper, model=model))
+        plan.append(ohv.UpdateNetworkConfigStep(jhelper=jhelper, model=model))
 
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
@@ -91,6 +94,7 @@ def bootstrap() -> None:
         console.print(f"{message}[green]Done[/green]")
 
     click.echo(f"Node has been bootstrapped as a {role} node")
+    asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
 
 
 if __name__ == "__main__":
