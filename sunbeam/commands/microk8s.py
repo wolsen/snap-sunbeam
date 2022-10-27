@@ -23,7 +23,6 @@ from snaphelpers import Snap
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 
 LOG = logging.getLogger(__name__)
-snap = Snap()
 
 
 class EnsureMicrok8sInstalled(InstallSnapStep):
@@ -142,7 +141,7 @@ class EnableDNS(BaseCoreMicroK8sEnableStep):
             console=console,
         )
         self._args = [nameservers]
-        snap.config.set({"microk8s.dns": nameservers})
+        Snap().config.set({"microk8s.dns": nameservers})
 
 
 class EnableStorage(BaseCoreMicroK8sEnableStep):
@@ -156,7 +155,7 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
     """Enable metallb for microk8s"""
 
     def __init__(self):
-        network = snap.config.get("microk8s.metallb")
+        network = Snap().config.get("microk8s.metallb")
         super().__init__("metallb", network)
 
     def has_prompts(self) -> bool:
@@ -179,7 +178,7 @@ class EnableMetalLB(BaseCoreMicroK8sEnableStep):
             console=console,
         )
         self._args = [network]
-        snap.config.set({"microk8s.metallb": network})
+        Snap().config.set({"microk8s.metallb": network})
 
 
 class EnableAccessToUser(BaseStep):
