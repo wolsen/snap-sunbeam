@@ -16,6 +16,7 @@
 import base64
 import binascii
 import os
+import socket
 import typing
 
 from netifaces import interfaces, ifaddresses, AF_INET
@@ -73,6 +74,11 @@ def parse_version(version: str) -> VersionInfo:
         raise
 
 
+def get_hostname() -> str:
+    """Get hostname of the machine"""
+    return socket.gethostname()
+
+
 def get_local_ip_address() -> typing.List:
     """Get IP address of the local host."""
     addresses = []
@@ -90,7 +96,7 @@ def get_local_ip_address() -> typing.List:
     return addresses
 
 
-def encode_tls(cert_or_key: str) -> bytes:
+def encode_tls(cert_or_key: str) -> str:
     """Encode key or cert.
 
     :param cert: key/cert

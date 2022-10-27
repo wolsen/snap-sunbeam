@@ -18,6 +18,8 @@ import logging
 import operator
 from typing import Optional
 
+from snaphelpers import Snap
+
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
@@ -148,13 +150,14 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
             "Update identity settings to openstack-hypervisor snap",
         )
 
+        hostname = utils.get_hostname()
         self.action_info = [
             {
                 "app": "keystone",
                 "action_cmd": "get-service-account",
                 # TODO(hemanth): Username should be modified with hostname of
                 # each hypervisor prefixed with nova-
-                "action_params": {"username": "nova-hypervisor"},
+                "action_params": {"username": hostname},
                 "map_alias": {"public-endpoint": "auth-url", "region": "region_name"},
                 "attributes_to_update": {
                     "auth-url",
@@ -202,8 +205,14 @@ class UpdateNetworkConfigStep(OHVBaseStep):
             "Update Network Config", "Update ovn-sb url to openstack-hypervisor snap"
         )
 
-        sans = utils.get_local_ip_address()
-        sans_str = " ".join(sans)
+        snap = Snap()
+
+        # TODO(hemanth): cn needs to be updated from cluster
+        sans = ""
+        cn = utils.get_hostname()
+        compute_sans = snap.config.get("compute.sans")
+        if cn in compute_sans:
+            sans = compute_sans[cn]
 
         self.action_info = [
             {
@@ -217,8 +226,8 @@ class UpdateNetworkConfigStep(OHVBaseStep):
                 "app": "vault",
                 "action_cmd": "generate-certificate",
                 "action_params": {
-                    "cn": "nova-hypervisor",
-                    "sans": sans_str,
+                    "cn": cn,
+                    "sans": sans,
                     "type": "client",
                 },
                 "map_alias": {

@@ -142,6 +142,16 @@ def init(auto: bool, role: str) -> None:
             plan.append(microk8s.EnableAccessToUser(sudo_user))
 
     if node_role.is_compute_node():
+        # Update compute.sans config
+        # This need to be moved to cluster add-node
+        cn = utils.get_hostname()
+        compute_sans = snap.config.get("compute.sans")
+        if cn not in compute_sans:
+            sans = utils.get_local_ip_address()
+            sans_str = " ".join(sans)
+            compute_sans.update({cn: sans_str})
+            snap.config.set({"compute.sans": compute_sans})
+
         LOG.debug("This is where we would append steps for the compute node")
 
     for step in plan:
