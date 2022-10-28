@@ -35,6 +35,14 @@ class SnapAction(Enum):
     Switch = "switch"
 
 
+class AppAction(Enum):
+    """Actions to take on app"""
+
+    Stop = "stop"
+    Start = "start"
+    Restart = "restart"
+
+
 class SnapStatus(Enum):
     """Status of the snap"""
 
@@ -106,6 +114,28 @@ class SnapService(service.BaseService):
 
         return installed
 
+    def get_apps(self, snaps: typing.Iterable[str] = None) -> dict:
+        """Returns a list of apps
+
+        Get list of apps for the given snaps. If snap
+        is None, list all apps.
+
+        :param snaps: comma separated list of snaps
+        :type snaps: str
+        :return: list of apps
+        :type: list
+        """
+        query = {}
+        if snaps:
+            query = {"names": ",".join(snaps)}
+
+        services = []
+        apps = self._get("/v2/apps", params=query)
+        for result in apps["result"]:
+            services.append(App(**result))
+
+        return services
+
     def install(self, name: str, channel: typing.Optional[str] = "", **kwargs) -> int:
         """Installs the specified snap from the default (or specified) channel.
 
@@ -159,6 +189,45 @@ class SnapService(service.BaseService):
         }
         return self._update_snap(SnapAction.Remove, name, **kwargs)
 
+    def start_apps(self, names: list, **kwargs) -> int:
+        """Start list of apps or all apps in a snap.
+
+        Start the apps specified in names. If snap is specified
+        in names, start all the apps in the snap.
+
+        :param names: name of app or snap
+        :type names: list
+        :return: a change id to monitor the asynchronous status
+        :rtype: int
+        """
+        return self._update_app(AppAction.Start, names, **kwargs)
+
+    def stop_apps(self, names: list, **kwargs) -> int:
+        """Stop list of apps or all apps in a snap.
+
+        Stop the apps specified in names. If snap is specified
+        in names, stop all the apps in the snap.
+
+        :param names: name of app or snap
+        :type names: list
+        :return: a change id to monitor the asynchronous status
+        :rtype: int
+        """
+        return self._update_app(AppAction.Stop, names, **kwargs)
+
+    def restart_apps(self, names: list, **kwargs) -> int:
+        """Restart list of apps or all apps in a snap.
+
+        Restart the apps specified in names. If snap is specified
+        in names, restart all the apps in the snap.
+
+        :param names: name of app or snap
+        :type names: list
+        :return: a change id to monitor the asynchronous status
+        :rtype: int
+        """
+        return self._update_app(AppAction.Restart, names, **kwargs)
+
     def _update_snap(
         self,
         action: SnapAction,
@@ -173,6 +242,23 @@ class SnapService(service.BaseService):
         data.update(kwargs)
 
         response = self._post(f"/v2/snaps/{name}", json=data)
+        change_id = response["change"]
+
+        return change_id
+
+    def _update_app(
+        self,
+        action: AppAction,
+        names: list,
+        **kwargs,
+    ) -> bool:
+        data = {
+            "action": str(action.value),
+            "names": names,
+        }
+        data.update(kwargs)
+
+        response = self._post("/v2/apps", json=data)
         change_id = response["change"]
 
         return change_id
