@@ -145,13 +145,14 @@ def init(auto: bool, role: str) -> None:
     if node_role.is_compute_node():
         # Update compute.sans config
         # This need to be moved to cluster add-node
-        cn = utils.get_hostname()
-        compute_sans = snap.config.get("compute.sans")
-        if cn not in compute_sans:
-            sans = utils.get_local_ip_address()
+        cn = utils.get_fqdn()
+        compute = snap.config.get("compute.node")
+        if cn not in compute:
+            sans = utils.get_local_ip_addresses()
             sans_str = " ".join(sans)
-            compute_sans.update({cn: sans_str})
-            snap.config.set({"compute.sans": compute_sans})
+            ip = utils.get_local_ip_by_default_route()
+            compute.update({cn: {"ip": ip, "sans": sans_str}})
+            snap.config.set({"compute.node": compute})
 
         LOG.debug("This is where we would append steps for the compute node")
         plan.append(ohv.EnsureOVHInstalled(channel=ohv_channel))

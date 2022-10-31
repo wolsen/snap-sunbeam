@@ -161,6 +161,26 @@ class ConfigService(service.BaseService):
         result = self._patch("/settings/network", data=config.json(by_alias=True))
         return result
 
+    def get_node_config(self) -> NodeConfig:
+        """Returns the node configuration."""
+
+        node_config = self._get("/settings/node")
+        return NodeConfig.parse_obj(node_config)
+
+    def update_node_config(
+        self, config: typing.Union[NodeConfig, dict]
+    ) -> NodeConfig:
+        """Updates the Node related configuration.
+
+        :param config:
+        :return:
+        """
+        if isinstance(config, dict):
+            config = NodeConfig(**config)
+
+        result = self._patch("/settings/node", data=config.json(by_alias=True))
+        return result
+
     # def get_installed_snaps(
     #     self, snaps: typing.Iterable[str] = None
     # ) -> typing.List[Snap]:

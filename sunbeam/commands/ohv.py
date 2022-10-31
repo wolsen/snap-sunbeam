@@ -225,10 +225,10 @@ class UpdateNetworkConfigStep(OHVBaseStep):
 
         # TODO(hemanth): cn needs to be updated from cluster
         sans = ""
-        cn = utils.get_hostname()
-        compute_sans = snap.config.get("compute.sans")
-        if cn in compute_sans:
-            sans = compute_sans[cn]
+        cn = utils.get_fqdn()
+        self.compute_info = snap.config.get("compute.node")
+        if cn in self.compute_info:
+            sans = self.compute_info[cn]["sans"]
 
         self.action_info = [
             {
@@ -259,7 +259,11 @@ class UpdateNetworkConfigStep(OHVBaseStep):
         self.update_config_func_name = "update_network_config"
 
     def _apply_handlers(self, config: dict) -> dict:
-        """Encode TLS certs and keys"""
+        """Apply any special handling cases.
+
+        Encode TLS certs and keys
+        Update ip-address from snap config
+        """
 
         if "ovn-key" in config:
             config["ovn-key"] = utils.encode_tls(config["ovn-key"])
@@ -268,4 +272,58 @@ class UpdateNetworkConfigStep(OHVBaseStep):
         if "ovn-cacert" in config:
             config["ovn-cacert"] = utils.encode_tls(config["ovn-cacert"])
 
+        if "ip-address" not in config:
+            ip = "127.0.0.1"
+            cn = utils.get_fqdn()
+            if cn in self.compute_info:
+                ip = self.compute_info[cn].get("ip", "127.0.0.1")
+            config["network.ip-address"] = ip
+
         return config
+
+
+class UpdateNodeConfigStep(OHVBaseStep):
+    """Update Node Config for openstack-hypervisor snap"""
+
+    def __init__(self, jhelper: JujuHelper, model: str):
+        super().__init__(
+            "Update Node Config", "Update node.ip-address to openstack-hypervisor snap"
+        )
+
+        self.jhelper = jhelper
+        self.model = model
+
+        self.action_info = []
+
+        self.get_config_func_name = "get_node_config"
+        self.update_config_func_name = "update_node_config"
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        skip = True
+
+        # Get configuration from openstack-hypervisor snap
+        self.ohv_client = ohvClient()
+        get_config_func = getattr(self.ohv_client.config, self.get_config_func_name)
+        self.config_from_snap = get_config_func()
+        LOG.debug(f"Config from openstack-hypervisor snap: {self.config_from_snap}")
+
+        ip = "127.0.0.1"
+        cn = utils.get_fqdn()
+        snap = Snap()
+        compute_info = snap.config.get("compute.node")
+        if cn in compute_info:
+            ip = compute_info[cn].get("ip", "127.0.0.1")
+
+        value_from_config = vars(self.config_from_snap).get("ip_address", None)
+        if not operator.eq(value_from_config, ip):
+            setattr(self.config_from_snap, "ip_address", ip)
+            skip = False
+
+        LOG.debug(
+            f"Config to apply on openstack-hypervisor snap: " f"{self.config_from_snap}"
+        )
+        return skip

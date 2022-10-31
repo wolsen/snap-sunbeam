@@ -79,8 +79,13 @@ def get_hostname() -> str:
     return socket.gethostname()
 
 
-def get_local_ip_address() -> typing.List:
-    """Get IP address of the local host."""
+def get_fqdn() -> str:
+    """Get FQDN of the machine"""
+    return socket.getfqdn()
+
+
+def get_local_ip_addresses() -> typing.List:
+    """Get IP addresses of the local host."""
     addresses = []
     for ifaceName in interfaces():
         address = [
@@ -94,6 +99,22 @@ def get_local_ip_address() -> typing.List:
         addresses.remove("127.0.0.1")
 
     return addresses
+
+
+def get_local_ip_by_default_route() -> str:
+    """Get IP address of host associated with default gateway"""
+    interface = "lo"
+    ip = "127.0.0.1"
+
+    # TOCHK: Gathering only IPv4
+    if "default" in gateways():
+        interface = gateways()["default"][AF_INET][1]
+
+    ip_list = ifaddresses(interface)[AF_INET]
+    if len(ip_list) > 0 and "addr" in ip_list[0]:
+        ip = ip_list[0]["addr"]
+
+    return ip
 
 
 def encode_tls(cert_or_key: str) -> str:
