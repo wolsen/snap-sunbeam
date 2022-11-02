@@ -163,7 +163,7 @@ def init(auto: bool, role: str) -> None:
         with console.status(f"{step.description} ... ") as status:
             if step.is_skip(status=status):
                 LOG.debug(f"Skipping step {step.name}")
-                console.print(f"{message}[green]Done[/green]")
+                console.print(f"{message}[green]done[/green]")
                 continue
 
             if not auto and step.has_prompts():
@@ -178,10 +178,10 @@ def init(auto: bool, role: str) -> None:
             )
 
         if result.result_type == ResultType.FAILED:
-            console.print(f"{message}[red]Failed[/red]")
+            console.print(f"{message}[red]failed[/red]")
             raise click.ClickException(result.message)
 
-        console.print(f"{message}[green]Done[/green]")
+        console.print(f"{message}[green]done[/green]")
 
     console.print(f"Node has been initialised as a [bold]{role}[/bold] node")
     console.print("\nRun following commands to bootstrap:\n")

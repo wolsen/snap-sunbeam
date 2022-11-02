@@ -19,7 +19,7 @@ import os
 import socket
 import typing
 
-from netifaces import interfaces, ifaddresses, AF_INET
+from netifaces import AF_INET, ifaddresses, interfaces
 from semver import VersionInfo
 
 UNKNOWN_VERSION = VersionInfo(0, 0, 0)

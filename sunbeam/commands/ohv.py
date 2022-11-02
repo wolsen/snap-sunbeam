@@ -20,10 +20,10 @@ from typing import Optional
 
 from snaphelpers import Snap
 
+from sunbeam import utils
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
-from sunbeam import utils
 
 LOG = logging.getLogger(__name__)
 

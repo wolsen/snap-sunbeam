@@ -64,7 +64,11 @@ def bootstrap() -> None:
     if node_role.is_control_node():
         plan.append(juju.BootstrapJujuStep(cloud=cloud))
         plan.append(juju.CreateModelStep(jhelper=jhelper, model=model))
-        plan.append(juju.DeployBundleStep(jhelper=jhelper, model=model, bundle=bundle))
+        plan.append(
+            juju.DeployBundleStep(
+                jhelper=jhelper, model=model, name="control plane", bundle=bundle
+            )
+        )
 
     if node_role.is_compute_node():
         LOG.debug("This is where we would append steps for the compute node")
@@ -78,7 +82,7 @@ def bootstrap() -> None:
         with console.status(f"{step.description} ... "):
             if step.is_skip():
                 LOG.debug(f"Skipping step {step.name}")
-                console.print(f"{message}[green]Done[/green]")
+                console.print(f"{message}[green]done[/green]")
                 continue
 
             LOG.debug(f"Running step {step.name}")
@@ -88,10 +92,10 @@ def bootstrap() -> None:
             )
 
         if result.result_type == ResultType.FAILED:
-            console.print(f"{message}[red]Failed[/red]")
+            console.print(f"{message}[red]failed[/red]")
             raise click.ClickException(result.message)
 
-        console.print(f"{message}[green]Done[/green]")
+        console.print(f"{message}[green]done[/green]")
 
     click.echo(f"Node has been bootstrapped as a {role} node")
     asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())

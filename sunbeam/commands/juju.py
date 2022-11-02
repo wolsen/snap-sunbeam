@@ -343,7 +343,7 @@ class BootstrapJujuStep(BaseStep):
 
             return Result(ResultType.COMPLETED)
         except subprocess.CalledProcessError as e:
-            LOG.exception("Error bootstrapping juju")
+            LOG.exception("Error bootstrapping Juju")
             return Result(ResultType.FAILED, str(e))
 
 
@@ -351,7 +351,7 @@ class CreateModelStep(BaseStep):
     """Creates the specified model name."""
 
     def __init__(self, jhelper: JujuHelper, model: str):
-        super().__init__("Create model", "Creating model")
+        super().__init__("Create model", f"Creating {model} model")
         self.jhelper = jhelper
         self.model = model
 
@@ -360,9 +360,9 @@ class CreateModelStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Getting models information from juju")
+        LOG.debug("Retrieving model information from Juju")
         models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"Found juju models: {models}")
+        LOG.debug(f"Juju models: {models}")
 
         if self.model in models:
             return True
@@ -386,18 +386,19 @@ class CreateModelStep(BaseStep):
         if result:
             return Result(ResultType.COMPLETED)
         else:
-            return Result(ResultType.FAILED, "Error in creation of model")
+            return Result(ResultType.FAILED, f"Error in creation of model {self.model}")
 
 
 class DeployBundleStep(BaseStep):
     """Creates the specified model name."""
 
-    def __init__(self, jhelper: JujuHelper, model: str, bundle: Path):
-        super().__init__("Deploy bundle", "Deploy bundle")
+    def __init__(self, jhelper: JujuHelper, model: str, bundle: Path, name: str):
+        super().__init__("Deploy bundle", f"Deploying {name} bundle")
 
         self.jhelper = jhelper
         self.model = model
         self.bundle = bundle
+        self.name = name
         self.options = ["--trust"]
 
     def is_skip(self, status: Optional["Status"] = None):
@@ -410,7 +411,7 @@ class DeployBundleStep(BaseStep):
             self.jhelper.get_model_status(self.model, timeout=0)
         )
 
-        LOG.debug(f"Status of  models {self.model}: {apps_status}")
+        LOG.debug(f"Status of model {self.model}: {apps_status}")
 
         # TODO(hemanth): If all apps are active, skipping deploy bundle
         # Running bootstrap command multiple times with some apps not active
@@ -441,14 +442,14 @@ class DeployBundleStep(BaseStep):
         if result:
             return Result(ResultType.COMPLETED)
         else:
-            return Result(ResultType.FAILED, "Error in deploying bundle")
+            return Result(ResultType.FAILED, f"Error deploying bundle {self.name}")
 
 
 class DestroyModelStep(BaseStep):
     """Destroys the specified model name."""
 
     def __init__(self, jhelper: JujuHelper, model: str):
-        super().__init__("Destroy model", "Destroy model")
+        super().__init__("Destroy model", f"Destroying model {model}")
 
         self.jhelper = jhelper
         self.model = model
@@ -459,9 +460,9 @@ class DestroyModelStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Getting models information from juju")
+        LOG.debug("Retrieving model information from Juju")
         models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"Found juju models: {models}")
+        LOG.debug(f"Juju models: {models}")
 
         LOG.debug(self.model)
         if self.model in models:
@@ -483,7 +484,7 @@ class DestroyModelStep(BaseStep):
         if result:
             return Result(ResultType.COMPLETED)
         else:
-            return Result(ResultType.FAILED, "Error in destroying model")
+            return Result(ResultType.FAILED, "Error destroying model")
 
 
 class ModelStatusStep(BaseStep):
@@ -496,7 +497,7 @@ class ModelStatusStep(BaseStep):
         states: Optional[Path] = None,
         timeout: Optional[int] = None,
     ):
-        super().__init__("Model status", "Status of the apps in the model")
+        super().__init__("Model status", f"Status of applications in model {model}")
 
         self.jhelper = jhelper
         self.model = model
@@ -508,9 +509,9 @@ class ModelStatusStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Getting models information from juju")
+        LOG.debug("Retrieving model information from Juju")
         models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"juju models: {models}")
+        LOG.debug(f"Juju models: {models}")
 
         if self.model in models:
             return False

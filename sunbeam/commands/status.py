@@ -87,7 +87,7 @@ def status(wait_ready: bool, timeout: int) -> None:
             )
 
         if result.result_type == ResultType.FAILED:
-            console.print(f"{message}[red]Failed[/red]")
+            console.print(f"{message}[red]failed[/red]")
             raise click.ClickException(result.message)
 
     console.print("Microstack status:")
