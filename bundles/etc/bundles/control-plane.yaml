@@ -119,8 +119,8 @@ relations:
   - neutron:ingress-public
 - - vault:insecure-certificates
   - neutron:certificates
-- - neutron:ovsdb-cms
-  - ovn-central:ovsdb-cms
+- - ovn-central:ovsdb-cms
+  - neutron:ovsdb-cms
 
 - - vault:insecure-certificates
   - ovn-central:certificates
@@ -134,3 +134,5 @@ relations:
 
 - - vault:insecure-certificates
   - ovn-relay:certificates
+- - ovn-central:ovsdb-cms
+  - ovn-relay:ovsdb-cms
