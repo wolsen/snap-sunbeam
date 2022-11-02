@@ -497,7 +497,9 @@ class ModelStatusStep(BaseStep):
         states: Optional[Path] = None,
         timeout: Optional[int] = None,
     ):
-        super().__init__("Model status", f"Status of applications in model {model}")
+        super().__init__(
+            "Model status", f"Retrieving status of applications in model {model}"
+        )
 
         self.jhelper = jhelper
         self.model = model
