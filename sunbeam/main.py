@@ -32,13 +32,13 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 @click.group("init", context_settings=CONTEXT_SETTINGS)
 @click.option("--quiet", "-q", default=False, is_flag=True)
-@click.option("--verbose", "-v", default=False, is_flag=True)
 @click.pass_context
-def cli(ctx, quiet, verbose):
-    """Description of what the sunbeam command does.
+def cli(ctx, quiet):
+    """Microstack is a small lightweight OpenStack distribution.
 
-    Yeah yeah yeah, I know this gets displayed on the commandline, but I don't
-    yet know what to put here. I'll figure it out and then get back to it.
+    To get started with a single node, all-in-one OpenStack installation, start
+    with by initializing the local node. Once the local node has been initialized,
+    run the bootstrap process to get a live cloud.
     """
 
 

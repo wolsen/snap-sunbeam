@@ -53,7 +53,7 @@ plugs:
     # attempt to install it automatically and make sure that it is available.
     # This requires that the snap is available as a non-classic snap in order
     # to do this. We may need to bundle in the version of Juju.
-    #default-provider: juju/3.0/candidate
+    #default-provider: juju/3.0
     target: $SNAP/juju
 
   hypervisor-config:
