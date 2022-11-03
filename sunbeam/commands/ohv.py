@@ -20,10 +20,10 @@ from typing import Optional
 
 from snaphelpers import Snap
 
+from sunbeam import utils
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
-from sunbeam import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ class UpdateIdentityServiceConfigStep(OHVBaseStep):
     def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
             "Update Identity Config",
-            "Update identity settings to openstack-hypervisor snap",
+            "Updating hypervisor identity configuration",
         )
         self.jhelper = jhelper
         self.model = model
@@ -190,7 +190,7 @@ class UpdateRabbitMQConfigStep(OHVBaseStep):
 
     def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
-            "Update Rabbitmq Config", "Update rabbitmq url to openstack-hypervisor snap"
+            "Update RabbitMQ Config", "Updating hypervisor RabbitMQ configuration"
         )
 
         self.jhelper = jhelper
@@ -215,7 +215,7 @@ class UpdateNetworkConfigStep(OHVBaseStep):
 
     def __init__(self, jhelper: JujuHelper, model: str):
         super().__init__(
-            "Update Network Config", "Update ovn-sb url to openstack-hypervisor snap"
+            "Update Network Config", "Updating hypervisor OVN configuration"
         )
 
         snap = Snap()

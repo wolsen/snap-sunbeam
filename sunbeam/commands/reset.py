@@ -68,7 +68,7 @@ def reset() -> None:
         with console.status(f"{step.description} ... "):
             if step.is_skip():
                 LOG.debug(f"Skipping step {step.name}")
-                console.print(f"{message}[green]Done[/green]")
+                console.print(f"{message}[green]done[/green]")
                 continue
             else:
                 LOG.debug(f"Running step {step.name}")
@@ -79,10 +79,10 @@ def reset() -> None:
                 )
 
         if result.result_type == ResultType.FAILED:
-            console.print(f"{message}[red]Failed[/red]")
+            console.print(f"{message}[red]failed[/red]")
             raise click.ClickException(result.message)
 
-        console.print(f"{message}[green]Done[/green]")
+        console.print(f"{message}[green]done[/green]")
 
     asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
 
