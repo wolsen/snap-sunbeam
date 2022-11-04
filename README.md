@@ -38,23 +38,28 @@ MicroStack is going in a whole new direction - in a good way! We've listened to 
 
 ## Quickstart (Sunbeam)
 
+Install pre-requisites:
+
+```bash
+sudo snap install microk8s --channel 1.25-strict/stable
+sudo microk8s enable dns hostpath-storage
+sudo microk8s enable metallb 10.20.20.1/29
+sudo snap install juju --channel 3.0/edge
+```
+
 Install MicroStack from the sunbeam channel:
 
 ```bash
 sudo snap install microstack --devmode --channel sunbeam/beta
 ```
 
-Deploy MicroStack in your environment. In the sunbeam version, the initialisation process has been split into two distint steps:
+Connect Microstack to Juju:
 
-* The initialisation step - which installs and configures the base configuration
-* The bootstrap step - which runs through the proess of deploying and configuring the control plane pieces
-
-First start out by initialising the microstack node. This will configure the node as a hyperconveraged node.
 ```bash
-sudo microstack init --auto
+sudo snap connect microstack:juju-bin juju:juju-bin
 ```
 
-Next, bootstrap the cloud and configure the OpenStack services.
+Bootstrap the cloud and configure the OpenStack services.
 
 ```bash
 microstack bootstrap
