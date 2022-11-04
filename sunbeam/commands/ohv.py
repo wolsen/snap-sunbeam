@@ -18,8 +18,6 @@ import logging
 import operator
 from typing import Optional
 
-from snaphelpers import Snap
-
 from sunbeam import utils
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
@@ -41,6 +39,9 @@ class OHVBaseStep(BaseStep):
         self.config = None
 
     def _get_compute_node_ip(self) -> str:
+        ip = utils.get_local_ip_by_default_route()
+
+        """
         ip = "127.0.0.1"
 
         snap = Snap()
@@ -49,6 +50,7 @@ class OHVBaseStep(BaseStep):
         cn = utils.get_fqdn()
         if cn in compute_info:
             ip = compute_info[cn].get("ip", "127.0.0.1")
+        """
 
         return ip
 
@@ -245,12 +247,17 @@ class UpdateNetworkConfigStep(OHVBaseStep):
 
         # Get required info for juju actions
         # TODO(hemanth): cn needs to be updated from cluster
-        snap = Snap()
         sans = ""
         cn = utils.get_fqdn()
+        sans = utils.get_local_ip_addresses()
+        sans = " ".join(sans)
+
+        """
+        snap = Snap()
         self.compute_info = snap.config.get("compute.node")
         if cn in self.compute_info:
             sans = self.compute_info[cn]["sans"]
+        """
 
         # Retrieve config from juju actions
         app = "ovn-relay"
@@ -294,14 +301,6 @@ class UpdateNetworkConfigStep(OHVBaseStep):
                 setattr(self.config, attrib, value_from_action)
                 skip = False
 
-        # Retrieve config from microstack snap
-        ip = self._get_compute_node_ip()
-
-        # Skip update if config is same
-        if not operator.eq(str(self.config.ip_address), ip):
-            self.config.ip_address = ip
-            skip = False
-
         return skip
 
     def run(self, status: Optional["Status"] = None) -> Result:
@@ -336,18 +335,6 @@ class UpdateNodeConfigStep(OHVBaseStep):
         self.model = model
 
         self.ohv_client = ohvClient()
-
-    def _get_compute_node_ip(self) -> str:
-        ip = "127.0.0.1"
-
-        snap = Snap()
-        compute_info = snap.config.get("compute.node")
-
-        cn = utils.get_fqdn()
-        if cn in compute_info:
-            ip = compute_info[cn].get("ip", "127.0.0.1")
-
-        return ip
 
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.

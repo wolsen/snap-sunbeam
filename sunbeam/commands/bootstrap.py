@@ -25,6 +25,7 @@ from sunbeam import utils
 from sunbeam.commands import juju, ohv
 from sunbeam.commands.init import Role
 from sunbeam.jobs.common import ResultType
+from sunbeam.jobs.checks import ConnectJujuSlotCheck, MissingSnapsCheck
 
 LOG = logging.getLogger(__name__)
 console = Console()
@@ -57,8 +58,30 @@ def bootstrap() -> None:
     model = snap.config.get("control-plane.model")
     bundle: Path = snap.paths.common / "etc" / "bundles" / "control-plane.yaml"
 
-    jhelper = juju.JujuHelper()
+    check_installed_snaps = []
+    if node_role.is_control_node():
+        check_installed_snaps.extend(["juju", "microk8s"])
+    if node_role.is_compute_node():
+        check_installed_snaps.extend(["openstack-hypervisor"])
 
+    preflight_checks = [
+        MissingSnapsCheck(check_installed_snaps),
+        ConnectJujuSlotCheck(),
+    ]
+
+    for check in preflight_checks:
+        LOG.debug(f"Starting pre-flight check {check.name}")
+        message = f"{check.description} ... "
+        with console.status(f"{check.description} ... "):
+            result = check.run()
+            if result:
+                console.print(f"{message}[green]done[/green]")
+            else:
+                console.print(f"{message}[red]failed[/red]")
+                console.print()
+                raise click.ClickException(check.message)
+
+    jhelper = juju.JujuHelper()
     plan = []
 
     if node_role.is_control_node():
@@ -74,7 +97,6 @@ def bootstrap() -> None:
         LOG.debug("This is where we would append steps for the compute node")
         plan.append(ohv.UpdateIdentityServiceConfigStep(jhelper=jhelper, model=model))
         plan.append(ohv.UpdateRabbitMQConfigStep(jhelper=jhelper, model=model))
-        plan.append(ohv.UpdateNodeConfigStep(jhelper=jhelper, model=model))
         plan.append(ohv.UpdateNetworkConfigStep(jhelper=jhelper, model=model))
 
     for step in plan:
