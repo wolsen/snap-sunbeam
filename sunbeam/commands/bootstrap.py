@@ -74,7 +74,6 @@ def bootstrap() -> None:
         LOG.debug("This is where we would append steps for the compute node")
         plan.append(ohv.UpdateIdentityServiceConfigStep(jhelper=jhelper, model=model))
         plan.append(ohv.UpdateRabbitMQConfigStep(jhelper=jhelper, model=model))
-        plan.append(ohv.UpdateNodeConfigStep(jhelper=jhelper, model=model))
         plan.append(ohv.UpdateNetworkConfigStep(jhelper=jhelper, model=model))
 
     for step in plan:

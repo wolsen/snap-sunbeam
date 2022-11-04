@@ -294,14 +294,6 @@ class UpdateNetworkConfigStep(OHVBaseStep):
                 setattr(self.config, attrib, value_from_action)
                 skip = False
 
-        # Retrieve config from microstack snap
-        ip = self._get_compute_node_ip()
-
-        # Skip update if config is same
-        if not operator.eq(str(self.config.ip_address), ip):
-            self.config.ip_address = ip
-            skip = False
-
         return skip
 
     def run(self, status: Optional["Status"] = None) -> Result:
