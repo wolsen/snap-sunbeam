@@ -19,7 +19,6 @@ import click
 
 from sunbeam import log
 from sunbeam.commands import bootstrap as bootstrap_cmds
-from sunbeam.commands import init as init_cmds
 from sunbeam.commands import reset as reset_cmds
 from sunbeam.commands import status as status_cmds
 
@@ -44,7 +43,6 @@ def cli(ctx, quiet):
 
 def main():
     log.setup_root_logging()
-    cli.add_command(init_cmds.init)
     cli.add_command(bootstrap_cmds.bootstrap)
     cli.add_command(reset_cmds.reset)
     cli.add_command(status_cmds.status)
