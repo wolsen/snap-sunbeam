@@ -241,7 +241,10 @@ class BootstrapJujuStep(BaseStep):
         :param args: command to run
         :return:
         """
+        snap = Snap()
+        juju_binary = snap.paths.snap / "juju" / "bin" / "juju"
         cmd = ["/snap/bin/juju"]
+        cmd = [str(juju_binary)]
         cmd.extend(args)
         cmd.extend(["--format", "json"])
 
