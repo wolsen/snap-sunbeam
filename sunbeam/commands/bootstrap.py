@@ -24,8 +24,8 @@ from snaphelpers import Snap
 from sunbeam import utils
 from sunbeam.commands import juju, ohv
 from sunbeam.commands.init import Role
-from sunbeam.jobs.common import ResultType
 from sunbeam.jobs.checks import ConnectJujuSlotCheck, MissingSnapsCheck
+from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
 console = Console()
