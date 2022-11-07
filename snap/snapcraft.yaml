@@ -49,4 +49,4 @@ plugs:
   hypervisor-config:
     interface: content
     content: openstack-hypervisor
-    target: $SNAP_COMMON
+    target: $SNAP_DATA
