@@ -15,11 +15,13 @@ applications:
   rabbitmq:
     charm: ch:rabbitmq-k8s
     channel: edge
+    series: jammy
     scale: 1
     trust: true
   keystone:
     charm: ch:keystone-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
     options:
@@ -30,6 +32,7 @@ applications:
   glance:
     charm: ch:glance-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
     storage:
@@ -37,23 +40,27 @@ applications:
   nova:
     charm: ch:nova-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
   placement:
     charm: ch:placement-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
   neutron:
     charm: ch:neutron-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
     options:
       os-public-hostname:
   ovn-central:
     charm: ch:ovn-central-k8s
-    channel: edge
+    channel: 21.09/edge
+    series: jammy
     scale: 1
     trust: true
   vault:
@@ -63,11 +70,13 @@ applications:
   horizon:
     charm: ch:horizon-k8s
     channel: xena/edge
+    series: jammy
     scale: 1
     trust: true
   ovn-relay:
     charm: ch:ovn-relay-k8s
-    channel: edge
+    channel: 21.09/edge
+    series: jammy
     scale: 1
     trust: true
 
