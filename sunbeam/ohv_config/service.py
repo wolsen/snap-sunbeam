@@ -53,7 +53,7 @@ class BaseService(ABC):
         :type: Session
         """
         self.__session = session
-        self._socket_path = Snap().paths.common / "hypervisor-config" / "unix.socket"
+        self._socket_path = Snap().paths.data / "hypervisor-config" / "unix.socket"
 
     def _request(self, method, path, **kwargs):
         if path.startswith("/"):
