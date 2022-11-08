@@ -16,7 +16,6 @@ apps:
       - dot-local-share-juju
       - network
       - network-bind
-      - snapd-socket
       - ssh-public-keys
 
 parts:
@@ -56,8 +55,3 @@ plugs:
     interface: personal-files
     write:
       - $HOME/.local/share/juju
-
-  snapd-socket:
-    interface: system-files
-    write:
-      - /run/snapd.socket
