@@ -223,6 +223,12 @@ class BootstrapJujuStep(BaseStep):
         self.controller_name = None
         self.cloud = cloud
 
+    def _get_juju_binary(self) -> str:
+        """Get juju binary path."""
+        snap = Snap()
+        juju_binary = snap.paths.snap / "juju" / "bin" / "juju"
+        return str(juju_binary)
+
     def _juju_cmd(self, *args):
         """Runs the specified juju command line command
 
@@ -241,9 +247,7 @@ class BootstrapJujuStep(BaseStep):
         :param args: command to run
         :return:
         """
-        snap = Snap()
-        juju_binary = snap.paths.snap / "juju" / "bin" / "juju"
-        cmd = [str(juju_binary)]
+        cmd = [self._get_juju_binary()]
         cmd.extend(args)
         cmd.extend(["--format", "json"])
 
@@ -316,19 +320,12 @@ class BootstrapJujuStep(BaseStep):
         :return:
         """
         try:
-            cmd = ["/snap/bin/juju", "clouds", "--format", "json"]
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            LOG.debug(
-                f"Command finished. stdout={process.stdout}, " "stderr={process.stderr}"
-            )
-
-            clouds = json.loads(process.stdout)
+            clouds = self._juju_cmd("clouds")
             if self.cloud not in clouds:
                 LOG.critical("Could not find microk8s as a suitable cloud!")
                 return Result(ResultType.FAILED, "Unable to bootstrap to microk8s")
 
-            cmd = ["/snap/bin/juju", "bootstrap", self.cloud]
+            cmd = [self._get_juju_binary(), "bootstrap", self.cloud]
 
             # TODO(wolsen) probably want to refactor this into a proper quirks type
             #  thing.
