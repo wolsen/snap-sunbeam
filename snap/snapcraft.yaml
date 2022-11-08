@@ -9,6 +9,10 @@ version: xena
 confinement: strict
 grade: devel
 
+layout:
+  /usr/share/terraform/plugins:
+    symlink: $SNAP_DATA/terraform-plugins
+
 apps:
   microstack:
     command: bin/microstack
@@ -18,6 +22,14 @@ apps:
       - network
       - network-bind
       - ssh-public-keys
+
+  terraform:
+    command: bin/terraform
+    plugs:
+      - home
+      - network
+      - ssh-public-keys
+      - juju-client-observe
 
 parts:
   microstack:
@@ -34,6 +46,32 @@ parts:
   bundles:
     plugin: dump
     source: bundles/
+
+  terraform:
+    plugin: go
+    source: https://github.com/hashicorp/terraform
+    source-depth: 1
+    source-type: git
+    source-tag: "v1.3.4"
+    build-snaps: [go]
+    build-environment:
+      - CGO_ENABLED: "0"
+      - GOFLAGS: "-mod=readonly"
+    override-build: |
+      go mod download
+      go build -ldflags "-s -w"
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+      cp terraform $SNAPCRAFT_PART_INSTALL/bin/terraform
+    stage:
+      - bin/terraform
+
+  configure:
+    plugin: dump
+    source: configure/
+    override-build: |
+      snapcraftctl build
+      cd $SNAPCRAFT_PART_INSTALL/etc/configure
+      $SNAPCRAFT_PRIME/bin/terraform providers mirror $SNAPCRAFT_PRIME/terraform-providers
 
 plugs:
   # Needed for juju client to autodiscover microk8s cloud
