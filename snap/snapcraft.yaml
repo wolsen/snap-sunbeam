@@ -67,11 +67,12 @@ parts:
 
   configure:
     plugin: dump
+    after: [terraform]
     source: configure/
     override-build: |
       snapcraftctl build
       cd $SNAPCRAFT_PART_INSTALL/etc/configure
-      $SNAPCRAFT_PRIME/bin/terraform providers mirror $SNAPCRAFT_PRIME/terraform-providers
+      $SNAPCRAFT_STAGE/bin/terraform providers mirror $SNAPCRAFT_STAGE/terraform-providers
 
 plugs:
   # Needed for juju client to autodiscover microk8s cloud
