@@ -80,6 +80,86 @@ def _retrieve_admin_credentials(jhelper: juju.JujuHelper, model: str) -> dict:
     }
 
 
+class UserOpenRCStep(BaseStep):
+    """Generate openrc for created cloud user."""
+
+    def __init__(self, auth_url: str, auth_version: str):
+        super().__init__("Generate user openrc", "Generating openrc for cloud usage")
+        self.auth_url = auth_url
+        self.auth_version = auth_version
+
+    def run(self, status: Optional[Status]) -> Result:
+        try:
+            terraform = str(snap.paths.snap / "bin" / "terraform")
+            cmd = [terraform, "output", "-json"]
+            LOG.debug(f'Running command {" ".join(cmd)}')
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=snap.paths.user_common / "etc" / "configure",
+            )
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, stderr={process.stderr}"
+            )
+            tf_output = json.loads(process.stdout)
+            self._print_openrc(tf_output)
+            return Result(ResultType.COMPLETED)
+        except subprocess.CalledProcessError as e:
+            LOG.exception("Error initializing Terraform")
+            return Result(ResultType.FAILED, str(e))
+
+    def _print_openrc(self, tf_output: dict) -> None:
+        """Print openrc to console and save to disk using provided information"""
+        openrc = f"""# openrc for {tf_output["OS_USERNAME"]["value"]}
+export OS_AUTH_URL={self.auth_url}
+export OS_USERNAME={tf_output["OS_USERNAME"]["value"]}
+export OS_PASSWORD={tf_output["OS_PASSWORD"]["value"]}
+export OS_USER_DOMAIN_NAME={tf_output["OS_USER_DOMAIN_NAME"]["value"]}
+export OS_PROJECT_DOMAIN_NAME={tf_output["OS_PROJECT_DOMAIN_NAME"]["value"]}
+export OS_PROJECT_NAME={tf_output["OS_PROJECT_NAME"]["value"]}
+export OS_AUTH_VERSION={self.auth_version}
+export OS_IDENTITY_API_VERSION={self.auth_version}"""
+        console.print(openrc)
+        with open(f"""openrc-{tf_output["OS_USERNAME"]["value"]}""", "w") as f_openrc:
+            os.fchmod(f_openrc.fileno(), mode=0o640)
+            f_openrc.write(openrc)
+
+
+class InitializeTerraformStep(BaseStep):
+    """Initialize Terraform with providers for OpenStack."""
+
+    def __init__(self):
+        super().__init__(
+            "Initialize Terraform", "Initializing Terraform from provider mirror"
+        )
+
+    def run(self, status: Optional[Status]) -> Result:
+        """Initialise Terraform configuration from provider mirror,"""
+        try:
+            # NOTE:
+            # terraform init will install plugins from $SNAP/terraform-plugins
+            # which is linked to from /usr/local/share/terraform/plugins
+            terraform = str(snap.paths.snap / "bin" / "terraform")
+            cmd = [terraform, "init"]
+            LOG.debug(f'Running command {" ".join(cmd)}')
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=snap.paths.user_common / "etc" / "configure",
+            )
+            LOG.debug(
+                f"Command finished. stdout={process.stdout}, stderr={process.stderr}"
+            )
+            return Result(ResultType.COMPLETED)
+        except subprocess.CalledProcessError as e:
+            LOG.exception("Error initializing Terraform")
+            return Result(ResultType.FAILED, str(e))
+
+
 class ConfigureCloudStep(BaseStep):
     """Default cloud configuration for all-in-one install."""
 
@@ -87,7 +167,7 @@ class ConfigureCloudStep(BaseStep):
         super().__init__(
             "Configure OpenStack cloud", "Configuring OpenStack cloud for use"
         )
-        self.admin_credentails = credentials
+        self.admin_credentials = credentials
         self.terraform_tfvars = (
             snap.paths.user_common / "etc" / "configure" / "terraform.tfvars.json"
         )
@@ -99,7 +179,7 @@ class ConfigureCloudStep(BaseStep):
     def has_prompts(self) -> bool:
         return True
 
-    def prompt(self, console: Optional["rich.console.Console"] = None) -> None:
+    def prompt(self, console: Optional[Console] = None) -> None:
         """Prompt the user for basic cloud configuration.
 
         Prompts the user for required information for cloud configuration.
@@ -161,30 +241,15 @@ class ConfigureCloudStep(BaseStep):
             self.variables["external_network"]["segmentation_id"] = 0
 
         with open(self.terraform_tfvars, "w") as tfvars:
+            os.fchmod(tfvars.fileno(), mode=0o640)
             tfvars.write(json.dumps(self.variables))
 
     def run(self, status: Optional[Status]) -> Result:
         """Execute configuration using terraform."""
         env = os.environ.copy()
-        env.update(self.admin_credentails)
+        env.update(self.admin_credentials)
         try:
-            # NOTE:
-            # terraform init will install plugins from $SNAP/terraform-plugins
-            # which is linked to from /usr/local/share/terraform/plugins
             terraform = str(snap.paths.snap / "bin" / "terraform")
-            cmd = [terraform, "init"]
-            LOG.debug(f'Running command {" ".join(cmd)}')
-            process = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=snap.paths.user_common / "etc" / "configure",
-                env=env,
-            )
-            LOG.debug(
-                f"Command finished. stdout={process.stdout}, stderr={process.stderr}"
-            )
             cmd = [
                 terraform,
                 "apply",
@@ -221,7 +286,14 @@ def configure() -> None:
     jhelper = juju.JujuHelper()
     admin_credentials = _retrieve_admin_credentials(jhelper, model)
 
-    plan = [ConfigureCloudStep(credentials=admin_credentials)]
+    plan = [
+        InitializeTerraformStep(),
+        ConfigureCloudStep(credentials=admin_credentials),
+        UserOpenRCStep(
+            auth_url=admin_credentials["OS_AUTH_URL"],
+            auth_version=admin_credentials["OS_AUTH_VERSION"],
+        ),
+    ]
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
         message = f"{step.description} ... "
@@ -244,19 +316,3 @@ def configure() -> None:
         console.print(f"{message}[green]done[/green]")
 
     asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
-
-    # Read from TF vars
-    username = "foobar"
-    password = "foobar"
-    domain_name = "users"
-
-    console.print(f"""# openrc for {username}
-export OS_AUTH_URL={admin_credentials['OS_AUTH_URL']}
-export OS_USERNAME={username}
-export OS_PASSWORD={password}
-export OS_USER_DOMAIN_NAME={domain_name}
-export OS_PROJECT_DOMAIN_NAME={domain_name}
-export OS_PROJECT_NAME={username}
-export OS_AUTH_VERSION"={admin_credentials['OS_AUTH_VERSION']}
-export OS_IDENTITY_API_VERSION"={admin_credentials['OS_IDENTITY_API_VERSION']}
-""")
