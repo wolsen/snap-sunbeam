@@ -45,6 +45,15 @@ sudo snap install microk8s --channel 1.25-strict/stable
 sudo microk8s enable dns hostpath-storage
 sudo microk8s enable metallb 10.20.20.1/29
 sudo snap install juju --channel 3.0/edge
+sudo microk8s status --wait-ready
+```
+
+Enable microk8s permissons
+
+```bash
+sudo usermod -a -G snap_microk8s ubuntu
+sudo chown -f -R ubuntu ~/.kube
+newgrp snap_microk8s
 ```
 
 Install MicroStack from the sunbeam channel:
@@ -59,10 +68,42 @@ Connect Microstack to Juju:
 sudo snap connect microstack:juju-bin juju:juju-bin
 ```
 
-Bootstrap the cloud and configure the OpenStack services.
+Install OpenStack hypervisor snap
+
+```bash
+sudo snap install --channel xena/edge openstack-hypervisor
+```
+
+Bootstrap the cloud and configure the OpenStack services. Note that this
+step may take some time (approx. 15 minutes or more).
 
 ```bash
 microstack bootstrap
+```
+
+Configure the cloud with a standard set of images, flavors, networks etc. When
+this step has finished it will provide you with credentials that can be used
+for interacting with microstack.
+
+```bash
+microstack configure
+```
+
+To use OpenStack cli install the openstack clients snap and export the
+credentials provided in the previous step.
+
+```bash
+sudo snap install openstackclients
+# Replace the values below with those provided by the `microstack configure` step
+export OS_AUTH_URL=http://10.20.20.2:80/openstack-keystone
+export OS_USERNAME=demo
+export OS_PASSWORD=OFcjF2vEiKk5
+export OS_USER_DOMAIN_NAME=users
+export OS_PROJECT_DOMAIN_NAME=users
+export OS_PROJECT_NAME=demo
+export OS_AUTH_VERSION=3
+export OS_IDENTITY_API_VERSION=3
+openstack image list
 ```
 
 ## Quickstart (Beta)
