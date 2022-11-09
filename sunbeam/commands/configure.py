@@ -280,7 +280,7 @@ class ConfigureCloudStep(BaseStep):
 
 
 @click.command()
-@click.option("-o", "--openrc", description="File to write cloud user credentials to.")
+@click.option("-o", "--openrc", help="Output file for cloud access details.")
 def configure(openrc: str = None) -> None:
     """Configure cloud with some sane defaults."""
     # NOTE: install to user writable location
