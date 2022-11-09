@@ -24,6 +24,7 @@ from typing import Optional
 import click
 import pwgen
 from rich.console import Console
+from rich.prompt import Prompt
 from snaphelpers import Snap
 
 from sunbeam.commands import juju
@@ -40,9 +41,9 @@ VARIABLE_DEFAULTS = {
         "cidr": "192.168.122.0/24",
     },
     "external_network": {
-        "cidr": "10.246.112.0/21",
-        "start": "10.246.115.51",
-        "end": "10.246.115.254",
+        "cidr": "10.20.20.0/24",
+        "start": "10.20.20.10",
+        "end": "10.20.20.200",
         "physical_network": "physnet1",
         "network_type": "flat",
         "segmentation_id": 0,
@@ -78,8 +79,6 @@ class ConfigureCloudStep(BaseStep):
         :param console: the console to prompt on
         :type console: rich.console.Console (Optional)
         """
-        from rich.prompt import Prompt
-
         # User configuration
         self.variables["user"]["username"] = Prompt.ask(
             "Username to use for access to OpenStack",
@@ -99,34 +98,34 @@ class ConfigureCloudStep(BaseStep):
 
         # External Network Configuration
         self.variables["external_network"]["cidr"] = Prompt.ask(
-            "CIDR of network to use for external networking.",
+            "CIDR of network to use for external networking",
             default=self.variables["external_network"]["cidr"],
             console=console,
         )
         self.variables["external_network"]["start"] = Prompt.ask(
-            "Start of IP allocation range from external network CIDR.",
+            "Start of IP allocation range for external network",
             default=self.variables["external_network"]["start"],
             console=console,
         )
         self.variables["external_network"]["end"] = Prompt.ask(
-            "End of IP allocation range from external network CIDR.",
+            "End of IP allocation range for external network",
             default=self.variables["external_network"]["end"],
             console=console,
         )
         self.variables["external_network"]["physical_network"] = Prompt.ask(
-            "Neutron label for physical network to map to external network.",
+            "Neutron label for physical network to map to external network",
             default=self.variables["external_network"]["physical_network"],
             console=console,
         )
         self.variables["external_network"]["network_type"] = Prompt.ask(
-            "Network type for access to external network.",
+            "Network type for access to external network",
             default=self.variables["external_network"]["network_type"],
             console=console,
-            choices=['flat', 'vlan'],
+            choices=["flat", "vlan"],
         )
         if self.variables["external_network"]["network_type"] == "vlan":
             self.variables["external_network"]["segmentation_id"] = Prompt.ask(
-                "VLAN ID to use for external network.",
+                "VLAN ID to use for external network",
                 default=self.variables["external_network"]["segmentation_id"],
                 console=console,
             )
