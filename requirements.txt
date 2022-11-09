@@ -15,4 +15,7 @@ semver # BSD-3
 # Used for getting local ip address
 netifaces
 
+# Generation of user passwords
+pwgen
+
 #git+https://github.com/openstack-charmers/zaza.git#egg=zaza
