@@ -52,7 +52,7 @@ class JujuSnapCheck(Check):
     def __init__(self):
         super().__init__(
             "Check for juju snap",
-            "Checking pre-requisites: Is juju snap installed and connected",
+            "Checking for presence of Juju",
         )
 
     def run(self) -> bool:
@@ -61,7 +61,7 @@ class JujuSnapCheck(Check):
         snap = Snap()
         juju_content = snap.paths.snap / "juju"
         if not juju_content.exists():
-            self.message = "Missing pre-requiste: Install juju snap"
+            self.message = "Juju not detected: please install snap"
 
             return False
 
@@ -74,7 +74,7 @@ class Microk8sSnapCheck(Check):
     def __init__(self):
         super().__init__(
             "Check for microk8s snap",
-            "Check pre-requisites: Is microk8s snap installed and connected",
+            "Checking for presence of microk8s",
         )
 
     def run(self) -> bool:
@@ -83,7 +83,7 @@ class Microk8sSnapCheck(Check):
         snap = Snap()
         microk8s_content = snap.paths.data / "microk8s"
         if not microk8s_content.exists():
-            self.message = "Missing pre-requiste: Install microk8s snap"
+            self.message = "microk8s not detected: please install snap"
 
             return False
 
@@ -96,8 +96,7 @@ class OpenStackHypervisorSnapCheck(Check):
     def __init__(self):
         super().__init__(
             "Check for openstack-hypervisor snap",
-            "Check pre-requisites: Is openstack-hypervisor snap installed and "
-            "connected",
+            "Checking for presence of openstack-hypervisor",
         )
 
     def run(self) -> bool:
@@ -106,7 +105,7 @@ class OpenStackHypervisorSnapCheck(Check):
         snap = Snap()
         ohv_content = snap.paths.data / "hypervisor-config"
         if not ohv_content.exists():
-            self.message = "Missing pre-requiste: Install openstack-hypervisor snap"
+            self.message = "openstack-hypervisor not detected: please install snap"
 
             return False
 
