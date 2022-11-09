@@ -51,15 +51,43 @@ VARIABLE_DEFAULTS = {
 }
 
 
+def _retrieve_admin_credentials(jhelper: juju.JujuHelper, model: str) -> dict:
+    """Retrieve cloud admin credentials.
+
+    Retrieve cloud admin credentials from keystone and
+    return as a dict suitable for use with subprocess
+    commands.  Variables are prefixed with OS_.
+    """
+    app = "keystone"
+    action_cmd = "get-admin-account"
+    action_result = asyncio.get_event_loop().run_until_complete(
+        jhelper.run_action(model, app, action_cmd)
+    )
+
+    if action_result.get("return-code", 0) > 1:
+        _message = "Unable to retrieve openrc from Keystone service"
+        raise click.ClickException(_message)
+
+    return {
+        "OS_USERNAME": action_result.get("username"),
+        "OS_PASSWORD": action_result.get("password"),
+        "OS_AUTH_URL": action_result.get("public-endpoint"),
+        "OS_USER_DOMAIN_NAME": action_result.get("user-domain-name"),
+        "OS_PROJECT_DOMAIN_NAME": action_result.get("project-domain-name"),
+        "OS_PROJECT_NAME": action_result.get("project-name"),
+        "OS_AUTH_VERSION": action_result.get("api-version"),
+        "OS_IDENTITY_API_VERSION": action_result.get("api-version"),
+    }
+
+
 class ConfigureCloudStep(BaseStep):
     """Default cloud configuration for all-in-one install."""
 
-    def __init__(self, jhelper: juju.JujuHelper, model: str):
+    def __init__(self, credentials: dict):
         super().__init__(
             "Configure OpenStack cloud", "Configuring OpenStack cloud for use"
         )
-        self.jhelper = jhelper
-        self.model = model
+        self.admin_credentails = credentials
         self.terraform_tfvars = (
             snap.paths.user_common / "etc" / "configure" / "terraform.tfvars.json"
         )
@@ -135,39 +163,10 @@ class ConfigureCloudStep(BaseStep):
         with open(self.terraform_tfvars, "w") as tfvars:
             tfvars.write(json.dumps(self.variables))
 
-    def _retrieve_admin_credentials(self) -> dict:
-        """Retrieve cloud admin credentials.
-
-        Retrieve cloud admin credentials from keystone and
-        return as a dict suitable for use with subprocess
-        commands.  Variables are prefixed with OS_.
-        """
-        app = "keystone"
-        action_cmd = "get-admin-account"
-        action_result = asyncio.get_event_loop().run_until_complete(
-            self.jhelper.run_action(self.model, app, action_cmd)
-        )
-
-        if action_result.get("return-code", 0) > 1:
-            _message = "Unable to retrieve openrc from Keystone service"
-            raise click.ClickException(_message)
-
-        return {
-            "OS_USERNAME": action_result.get("username"),
-            "OS_PASSWORD": action_result.get("password"),
-            "OS_AUTH_URL": action_result.get("public-endpoint"),
-            "OS_USER_DOMAIN_NAME": action_result.get("user-domain-name"),
-            "OS_PROJECT_DOMAIN_NAME": action_result.get("project-domain-name"),
-            "OS_PROJECT_NAME": action_result.get("project-name"),
-            "OS_AUTH_VERSION": action_result.get("api-version"),
-            "OS_IDENTITY_API_VERSION": action_result.get("api-version"),
-        }
-
     def run(self, status: Optional[Status]) -> Result:
         """Execute configuration using terraform."""
-        os_env = self._retrieve_admin_credentials()
         env = os.environ.copy()
-        env.update(os_env)
+        env.update(self.admin_credentails)
         try:
             # NOTE:
             # terraform init will install plugins from $SNAP/terraform-plugins
@@ -220,8 +219,9 @@ def configure() -> None:
 
     model = snap.config.get("control-plane.model")
     jhelper = juju.JujuHelper()
+    admin_credentials = _retrieve_admin_credentials(jhelper, model)
 
-    plan = [ConfigureCloudStep(jhelper=jhelper, model=model)]
+    plan = [ConfigureCloudStep(credentials=admin_credentials)]
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
         message = f"{step.description} ... "
@@ -245,5 +245,18 @@ def configure() -> None:
 
     asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
 
-    # TODO(jamespage)
-    # Print out details for access to cloud
+    # Read from TF vars
+    username = "foobar"
+    password = "foobar"
+    domain_name = "users"
+
+    console.print(f"""# openrc for {username}
+export OS_AUTH_URL={admin_credentials['OS_AUTH_URL']}
+export OS_USERNAME={username}
+export OS_PASSWORD={password}
+export OS_USER_DOMAIN_NAME={domain_name}
+export OS_PROJECT_DOMAIN_NAME={domain_name}
+export OS_PROJECT_NAME={username}
+export OS_AUTH_VERSION"={admin_credentials['OS_AUTH_VERSION']}
+export OS_IDENTITY_API_VERSION"={admin_credentials['OS_IDENTITY_API_VERSION']}
+""")
