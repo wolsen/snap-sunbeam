@@ -24,7 +24,11 @@ from snaphelpers import Snap
 from sunbeam import utils
 from sunbeam.commands import juju, ohv
 from sunbeam.commands.init import Role
-from sunbeam.jobs.checks import ConnectJujuSlotCheck, MissingSnapsCheck
+from sunbeam.jobs.checks import (
+    JujuSnapCheck,
+    Microk8sSnapCheck,
+    OpenStackHypervisorSnapCheck,
+)
 from sunbeam.jobs.common import ResultType
 
 LOG = logging.getLogger(__name__)
@@ -58,16 +62,11 @@ def bootstrap() -> None:
     model = snap.config.get("control-plane.model")
     bundle: Path = snap.paths.common / "etc" / "bundles" / "control-plane.yaml"
 
-    check_installed_snaps = []
+    preflight_checks = []
     if node_role.is_control_node():
-        check_installed_snaps.extend(["juju", "microk8s"])
+        preflight_checks.extend([JujuSnapCheck(), Microk8sSnapCheck()])
     if node_role.is_compute_node():
-        check_installed_snaps.extend(["openstack-hypervisor"])
-
-    preflight_checks = [
-        MissingSnapsCheck(check_installed_snaps),
-        ConnectJujuSlotCheck(),
-    ]
+        preflight_checks.extend([OpenStackHypervisorSnapCheck()])
 
     for check in preflight_checks:
         LOG.debug(f"Starting pre-flight check {check.name}")

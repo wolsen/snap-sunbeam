@@ -13,8 +13,8 @@ apps:
   microstack:
     command: bin/microstack
     plugs:
+      - dot-local-share-juju
       - home
-      - juju-client-observe
       - network
       - network-bind
       - ssh-public-keys
@@ -36,7 +36,8 @@ parts:
     source: bundles/
 
 plugs:
-  peers:
+  # Needed for juju client to autodiscover microk8s cloud
+  microk8s:
     interface: content
     content: microk8s
     target: $SNAP_DATA/microk8s
@@ -50,3 +51,8 @@ plugs:
     interface: content
     content: openstack-hypervisor
     target: $SNAP_DATA
+
+  dot-local-share-juju:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/juju

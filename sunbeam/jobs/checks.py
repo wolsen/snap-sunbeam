@@ -14,11 +14,8 @@
 # limitations under the License.
 
 import logging
-from typing import List
 
 from snaphelpers import Snap
-
-from sunbeam.snapd.client import Client as SnapClient
 
 LOG = logging.getLogger(__name__)
 
@@ -49,50 +46,66 @@ class Check:
         return True
 
 
-class MissingSnapsCheck(Check):
-    """Check if pre-requisite snaps are not installed."""
+class JujuSnapCheck(Check):
+    """Check if juju snap is installed or not."""
 
-    def __init__(self, snaps: List[str]):
+    def __init__(self):
         super().__init__(
-            "Check missing snaps", "Checking pre-requisites: necessary snaps installed"
+            "Check for juju snap",
+            "Checking for presence of Juju",
         )
-        self.snaps = snaps
 
     def run(self) -> bool:
-        """Check if all provided snaps are installed."""
+        """Check for juju-bin content."""
 
-        snap_client = SnapClient()
-        installed_snaps = snap_client.snaps.get_installed_snaps(self.snaps)
-        installed_snaps = [snap.name for snap in installed_snaps]
-        missing_snaps = set(self.snaps) - set(installed_snaps)
-        if missing_snaps:
-            self.message = (
-                "Missing pre-requisites: Install the following snaps:  "
-                f"{missing_snaps}."
-            )
+        snap = Snap()
+        juju_content = snap.paths.snap / "juju"
+        if not juju_content.exists():
+            self.message = "Juju not detected: please install snap"
+
             return False
 
         return True
 
 
-class ConnectJujuSlotCheck(Check):
-    """Check if juju content is connected or not."""
+class Microk8sSnapCheck(Check):
+    """Check if microk8s snap is installed or not."""
 
     def __init__(self):
         super().__init__(
-            "Check juju content", "Checking pre-requisites: snap connection juju-bin"
+            "Check for microk8s snap",
+            "Checking for presence of microk8s",
         )
 
     def run(self) -> bool:
-        """Check if all provided snaps are installed."""
+        """Check for microk8s content."""
 
         snap = Snap()
-        juju_content = snap.paths.snap / "juju"
-        if not juju_content.exists():
-            self.message = (
-                "Run the following command to connect microstack and juju: \n"
-                "sudo snap connect microstack:juju-bin juju:juju-bin"
-            )
+        microk8s_content = snap.paths.data / "microk8s"
+        if not microk8s_content.exists():
+            self.message = "microk8s not detected: please install snap"
+
+            return False
+
+        return True
+
+
+class OpenStackHypervisorSnapCheck(Check):
+    """Check if openStack-hypervisor snap is installed or not."""
+
+    def __init__(self):
+        super().__init__(
+            "Check for openstack-hypervisor snap",
+            "Checking for presence of openstack-hypervisor",
+        )
+
+    def run(self) -> bool:
+        """Check for openstack-hypervisor content."""
+
+        snap = Snap()
+        ohv_content = snap.paths.data / "hypervisor-config"
+        if not ohv_content.exists():
+            self.message = "openstack-hypervisor not detected: please install snap"
 
             return False
 
