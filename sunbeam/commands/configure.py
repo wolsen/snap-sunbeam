@@ -83,10 +83,11 @@ def _retrieve_admin_credentials(jhelper: juju.JujuHelper, model: str) -> dict:
 class UserOpenRCStep(BaseStep):
     """Generate openrc for created cloud user."""
 
-    def __init__(self, auth_url: str, auth_version: str):
+    def __init__(self, auth_url: str, auth_version: str, openrc: str):
         super().__init__("Generate user openrc", "Generating openrc for cloud usage")
         self.auth_url = auth_url
         self.auth_version = auth_version
+        self.openrc = openrc
 
     def run(self, status: Optional[Status]) -> Result:
         try:
@@ -112,7 +113,7 @@ class UserOpenRCStep(BaseStep):
 
     def _print_openrc(self, tf_output: dict) -> None:
         """Print openrc to console and save to disk using provided information"""
-        openrc = f"""# openrc for {tf_output["OS_USERNAME"]["value"]}
+        _openrc = f"""# openrc for {tf_output["OS_USERNAME"]["value"]}
 export OS_AUTH_URL={self.auth_url}
 export OS_USERNAME={tf_output["OS_USERNAME"]["value"]}
 export OS_PASSWORD={tf_output["OS_PASSWORD"]["value"]}
@@ -121,10 +122,15 @@ export OS_PROJECT_DOMAIN_NAME={tf_output["OS_PROJECT_DOMAIN_NAME"]["value"]}
 export OS_PROJECT_NAME={tf_output["OS_PROJECT_NAME"]["value"]}
 export OS_AUTH_VERSION={self.auth_version}
 export OS_IDENTITY_API_VERSION={self.auth_version}"""
-        console.print(openrc)
-        with open(f"""openrc-{tf_output["OS_USERNAME"]["value"]}""", "w") as f_openrc:
-            os.fchmod(f_openrc.fileno(), mode=0o640)
-            f_openrc.write(openrc)
+        if self.openrc:
+            message = f"Writing openrc to {self.openrc} ... "
+            console.status(message)
+            with open(self.openrc, "w") as f_openrc:
+                os.fchmod(f_openrc.fileno(), mode=0o640)
+                f_openrc.write(_openrc)
+            console.print(f"{message}[green]done[/green]")
+        else:
+            console.print(_openrc)
 
 
 class InitializeTerraformStep(BaseStep):
@@ -274,7 +280,8 @@ class ConfigureCloudStep(BaseStep):
 
 
 @click.command()
-def configure() -> None:
+@click.option("-o", "--openrc", description="File to write cloud user credentials to.")
+def configure(openrc: str = None) -> None:
     """Configure cloud with some sane defaults."""
     # NOTE: install to user writable location
     src = snap.paths.snap / "etc" / "configure"
@@ -292,6 +299,7 @@ def configure() -> None:
         UserOpenRCStep(
             auth_url=admin_credentials["OS_AUTH_URL"],
             auth_version=admin_credentials["OS_AUTH_VERSION"],
+            openrc=openrc,
         ),
     ]
     for step in plan:
