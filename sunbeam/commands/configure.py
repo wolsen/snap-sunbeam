@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import asyncio
+from datetime import datetime
 import json
 import logging
 import os
@@ -254,6 +255,11 @@ class ConfigureCloudStep(BaseStep):
         """Execute configuration using terraform."""
         env = os.environ.copy()
         env.update(self.admin_credentials)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        tf_log = str(
+            snap.paths.user_common / "etc" / "configure" / f"terraform-{timestamp}.log"
+        )
+        env.update({"TF_LOG": "INFO", "TF_LOG_PATH": tf_log})
         try:
             terraform = str(snap.paths.snap / "bin" / "terraform")
             cmd = [
