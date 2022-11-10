@@ -33,8 +33,9 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 @click.group("init", context_settings=CONTEXT_SETTINGS)
 @click.option("--quiet", "-q", default=False, is_flag=True)
+@click.option("--verbose", "-v", default=False, is_flag=True)
 @click.pass_context
-def cli(ctx, quiet):
+def cli(ctx, quiet, verbose):
     """Microstack is a small lightweight OpenStack distribution.
 
     To get started with a single node, all-in-one OpenStack installation, start
