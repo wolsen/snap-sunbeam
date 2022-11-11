@@ -28,7 +28,8 @@ from rich.console import Console
 from rich.prompt import Prompt
 from snaphelpers import Snap
 
-from sunbeam.commands import juju
+from sunbeam.commands.juju import JujuHelper
+from sunbeam.commands.ohv import UpdateExternalNetworkConfigStep
 from sunbeam.jobs.common import BaseStep, Result, ResultType, Status
 
 LOG = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ VARIABLE_DEFAULTS = {
 }
 
 
-def _retrieve_admin_credentials(jhelper: juju.JujuHelper, model: str) -> dict:
+def _retrieve_admin_credentials(jhelper: JujuHelper, model: str) -> dict:
     """Retrieve cloud admin credentials.
 
     Retrieve cloud admin credentials from keystone and
@@ -89,6 +90,13 @@ class UserOpenRCStep(BaseStep):
         self.auth_url = auth_url
         self.auth_version = auth_version
         self.openrc = openrc
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return False
 
     def run(self, status: Optional[Status]) -> Result:
         try:
@@ -142,6 +150,13 @@ class InitializeTerraformStep(BaseStep):
             "Initialize Terraform", "Initializing Terraform from provider mirror"
         )
 
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return False
+
     def run(self, status: Optional[Status]) -> Result:
         """Initialise Terraform configuration from provider mirror,"""
         try:
@@ -182,6 +197,13 @@ class ConfigureCloudStep(BaseStep):
         if self.terraform_tfvars.exists():
             with open(self.terraform_tfvars, "r") as tfvars:
                 self.variables.update(json.loads(tfvars.read()))
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return False
 
     def has_prompts(self) -> bool:
         return True
@@ -296,8 +318,11 @@ def configure(openrc: str = None) -> None:
     shutil.copytree(src, dst, dirs_exist_ok=True)
 
     model = snap.config.get("control-plane.model")
-    jhelper = juju.JujuHelper()
+    jhelper = JujuHelper()
     admin_credentials = _retrieve_admin_credentials(jhelper, model)
+    ext_network_file = (
+        snap.paths.user_common / "etc" / "configure" / "terraform.tfvars.json"
+    )
 
     plan = [
         InitializeTerraformStep(),
@@ -307,6 +332,7 @@ def configure(openrc: str = None) -> None:
             auth_version=admin_credentials["OS_AUTH_VERSION"],
             openrc=openrc,
         ),
+        UpdateExternalNetworkConfigStep(ext_network=ext_network_file),
     ]
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
@@ -316,6 +342,11 @@ def configure(openrc: str = None) -> None:
                 status.stop()
                 step.prompt(console)
                 status.start()
+
+            if step.is_skip():
+                LOG.debug(f"Skipping step {step.name}")
+                console.print(f"{message}[green]done[/green]")
+                continue
 
             LOG.debug(f"Running step {step.name}")
             result = step.run(status)

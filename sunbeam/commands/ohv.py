@@ -14,8 +14,10 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import operator
+from pathlib import Path
 from typing import Optional
 
 from sunbeam import utils
@@ -314,6 +316,67 @@ class UpdateNetworkConfigStep(OHVBaseStep):
             if action_result.get("return-code", 1) == 1:
                 return Result(ResultType.FAILED, "Juju action returned error")
 
+        try:
+            LOG.debug(f"Config to apply on openstack-hypervisor snap: {self.config}")
+            result = self.ohv_client.config.update_network_config(self.config)
+            LOG.debug(f"Result after updating network config: {result}")
+        except Exception as e:
+            LOG.exception("Error setting config for openstack-hypervisor")
+            return Result(ResultType.FAILED, str(e))
+
+        return Result(ResultType.COMPLETED)
+
+
+class UpdateExternalNetworkConfigStep(OHVBaseStep):
+    """Update External Network Config for openstack-hypervisor snap"""
+
+    def __init__(self, ext_network: Path):
+        super().__init__(
+            "Update Network Config",
+            "Updating hypervisor external network configuration",
+        )
+
+        # File path with external_network details in json format
+        self.ext_network_file = ext_network
+        self.ext_network = {}
+
+        self.ohv_client = ohvClient()
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        skip = True
+
+        # Get configuration from openstack-hypervisor snap
+        self.config = self.ohv_client.config.get_network_config()
+        LOG.debug(f"Config from openstack-hypervisor snap: {self.config}")
+
+        with open(self.ext_network_file, "r") as fp:
+            self.ext_network = json.load(fp).get("external_network", {})
+
+        # Mapping of config names as seen by snap and from tf file
+        config_name_map = [
+            ("physnet_name", "physical_network"),
+            ("external_network_cidr", "cidr"),
+        ]
+        for attrib in config_name_map:
+            value_from_snap = vars(self.config).get(attrib[0])
+            value_from_file = self.ext_network.get(attrib[1], None)
+            if not operator.eq(value_from_snap, value_from_file):
+                setattr(self.config, attrib[0], value_from_file)
+                skip = False
+
+        return skip
+
+    def run(self, status: Optional["Status"] = None) -> Result:
+        """Run the step to completion.
+
+        Invoked when the step is run and returns a ResultType to indicate
+
+        :return:
+        """
         try:
             LOG.debug(f"Config to apply on openstack-hypervisor snap: {self.config}")
             result = self.ohv_client.config.update_network_config(self.config)
