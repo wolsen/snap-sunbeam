@@ -25,7 +25,7 @@ from typing import Optional
 import click
 import pwgen
 from rich.console import Console
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 from snaphelpers import Snap
 
 from sunbeam.commands.juju import JujuHelper
@@ -41,6 +41,7 @@ VARIABLE_DEFAULTS = {
     "user": {
         "username": "demo",
         "cidr": "192.168.122.0/24",
+        "security_group_rules": True,
     },
     "external_network": {
         "cidr": "10.20.20.0/24",
@@ -230,6 +231,11 @@ class ConfigureCloudStep(BaseStep):
         self.variables["user"]["cidr"] = Prompt.ask(
             "Network range to use for project network",
             default=self.variables["user"]["cidr"],
+            console=console,
+        )
+        self.variables["user"]["security_group_rules"] = Confirm.ask(
+            "Setup security group rules for SSH and ICMP ingress",
+            default=self.variables["user"].get("security_group_rules", True),
             console=console,
         )
 

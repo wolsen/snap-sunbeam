@@ -14,9 +14,10 @@ variable "external_network" {
 # User setup
 variable "user" {
   type = object({
-    username = string
-    password = string
-    cidr     = string
+    username             = string
+    password             = string
+    cidr                 = string
+    security_group_rules = bool
   })
   sensitive = true
 }

@@ -155,3 +155,31 @@ resource "openstack_networking_quota_v2" "network_quota" {
   subnet              = -1
   subnetpool          = -1
 }
+
+
+data "openstack_networking_secgroup_v2" "secgroup_default" {
+  name      = "default"
+  tenant_id = openstack_identity_project_v3.user_project.id
+}
+
+resource "openstack_networking_secgroup_rule_v2" "secgroup_rule_ssh_ingress" {
+  count             = var.user.security_group_rules ? 1 : 0
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 22
+  port_range_max    = 22
+  remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = data.openstack_networking_secgroup_v2.secgroup_default.id
+  tenant_id         = openstack_identity_project_v3.user_project.id
+}
+
+resource "openstack_networking_secgroup_rule_v2" "secgroup_rule_ping_ingress" {
+  count             = var.user.security_group_rules ? 1 : 0
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "icmp"
+  remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = data.openstack_networking_secgroup_v2.secgroup_default.id
+  tenant_id         = openstack_identity_project_v3.user_project.id
+}
