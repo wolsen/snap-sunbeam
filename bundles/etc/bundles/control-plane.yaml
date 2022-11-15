@@ -14,7 +14,7 @@ applications:
     trust: false
   rabbitmq:
     charm: ch:rabbitmq-k8s
-    channel: edge
+    channel: 3.9/beta
     series: jammy
     scale: 1
     trust: true
