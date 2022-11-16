@@ -14,18 +14,18 @@
 # limitations under the License.
 
 import asyncio
-from datetime import datetime
 import json
 import logging
 import os
 import shutil
 import subprocess
+from datetime import datetime
 from typing import Optional
 
 import click
 import pwgen
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 from snaphelpers import Snap
 
 from sunbeam.commands.juju import JujuHelper

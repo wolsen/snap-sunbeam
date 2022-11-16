@@ -15,6 +15,7 @@
 
 import asyncio
 import logging
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -22,11 +23,31 @@ from snaphelpers import Snap
 
 from sunbeam.commands import juju
 from sunbeam.commands.init import Role
-from sunbeam.jobs.common import ResultType
+from sunbeam.jobs.common import BaseStep, Result, ResultType, Status
 
 LOG = logging.getLogger(__name__)
 console = Console()
 snap = Snap()
+
+
+class PurgeTerraformStateStep(BaseStep):
+    """Purge Terraform state and variables from local disk."""
+
+    def __init__(self):
+        super().__init__(
+            "Purging Terraform state", "Purging Terraform state and variables"
+        )
+
+    def run(self, status: Optional[Status] = None) -> Result:
+        paths = [
+            "terraform.tfvars.json",
+            "terraform.tfstate",
+            "terraform.tfstate.backup",
+        ]
+        for path in paths:
+            filepath = snap.paths.user_common / "etc" / "configure" / path
+            filepath.unlink(missing_ok=True)
+        return Result(ResultType.COMPLETED)
 
 
 @click.command()
@@ -61,6 +82,7 @@ def reset() -> None:
         # HA case, remove microk8s?? what if microk8s already
         # exists and getting used for other purposes
         plan.append(juju.DestroyModelStep(jhelper=jhelper, model=model))
+        plan.append(PurgeTerraformStateStep())
 
     for step in plan:
         LOG.debug(f"Starting step {step.name}")
