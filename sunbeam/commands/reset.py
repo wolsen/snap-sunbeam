@@ -15,6 +15,7 @@
 
 import asyncio
 import logging
+import shutil
 from typing import Optional
 
 import click
@@ -39,14 +40,9 @@ class PurgeTerraformStateStep(BaseStep):
         )
 
     def run(self, status: Optional[Status] = None) -> Result:
-        paths = [
-            "terraform.tfvars.json",
-            "terraform.tfstate",
-            "terraform.tfstate.backup",
-        ]
-        for path in paths:
-            filepath = snap.paths.user_common / "etc" / "configure" / path
-            filepath.unlink(missing_ok=True)
+        configure_dir = snap.paths.user_common / "etc" / "configure"
+        if configure_dir.exists():
+            shutil.rmtree(path=configure_dir)
         return Result(ResultType.COMPLETED)
 
 
