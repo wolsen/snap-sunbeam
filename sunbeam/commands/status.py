@@ -100,4 +100,7 @@ def status(wait_ready: bool, timeout: int) -> None:
         else:
             console.print(f"[red]{message}[/red]")
 
+    console.print()
+    console.print("User Survey: https://microstack.run/survey")
+
     asyncio.get_event_loop().run_until_complete(jhelper.disconnect_controller())
