@@ -321,9 +321,33 @@ class BootstrapJujuStep(BaseStep):
         """
         try:
             clouds = self._juju_cmd("clouds")
-            if self.cloud not in clouds:
-                LOG.critical("Could not find microk8s as a suitable cloud!")
-                return Result(ResultType.FAILED, "Unable to bootstrap to microk8s")
+            k8s_clouds = []
+            for name, details in clouds.items():
+                if details["type"] == "k8s":
+                    k8s_clouds.append(name)
+
+            LOG.debug(
+                f"There are {len(k8s_clouds)} k8s clouds available: " f"{k8s_clouds}"
+            )
+
+            if not k8s_clouds:
+                LOG.critical(
+                    "\nNo k8s cloud detected by Juju.\n"
+                    "Run below command for non-microk8s kubernetes cloud "
+                    "to provide access to config file:\n"
+                    "sudo snap connect microstack:dot-kubernetes\n"
+                )
+                return Result(
+                    ResultType.FAILED,
+                    "Could not find any k8s clouds to bootstrap",
+                )
+
+            if self.cloud not in k8s_clouds:
+                LOG.critical(f"Could not find {self.cloud} as a suitable cloud!")
+                return Result(
+                    ResultType.FAILED,
+                    f"Could not find {self.cloud} cloud to bootstrap",
+                )
 
             cmd = [self._get_juju_binary(), "bootstrap", self.cloud]
 
