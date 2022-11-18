@@ -73,6 +73,7 @@ resource "openstack_networking_subnet_v2" "external_subnet" {
     start = var.external_network.start
     end   = var.external_network.end
   }
+  gateway_ip = var.external_network.gateway
 }
 
 # User configuration

@@ -2,6 +2,7 @@
 variable "external_network" {
   type = object({
     cidr             = string
+    gateway          = string
     start            = string
     end              = string
     physical_network = string

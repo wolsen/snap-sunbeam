@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -45,8 +46,9 @@ VARIABLE_DEFAULTS = {
     },
     "external_network": {
         "cidr": "10.20.20.0/24",
-        "start": "10.20.20.10",
-        "end": "10.20.20.200",
+        "gateway": None,
+        "start": None,
+        "end": None,
         "physical_network": "physnet1",
         "network_type": "flat",
         "segmentation_id": 0,
@@ -245,14 +247,32 @@ class ConfigureCloudStep(BaseStep):
             default=self.variables["external_network"]["cidr"],
             console=console,
         )
+        external_network = ipaddress.ip_network(
+            self.variables["external_network"]["cidr"]
+        )
+        external_network_hosts = list(external_network.hosts())
+        default_gateway = self.variables["external_network"]["gateway"] or str(
+            external_network_hosts[0]
+        )
+        self.variables["external_network"]["gateway"] = Prompt.ask(
+            "IP address of gateway for external network",
+            default=default_gateway,
+            console=console,
+        )
+        default_allocation_range_start = self.variables["external_network"][
+            "start"
+        ] or str(external_network_hosts[1])
         self.variables["external_network"]["start"] = Prompt.ask(
             "Start of IP allocation range for external network",
-            default=self.variables["external_network"]["start"],
+            default=default_allocation_range_start,
             console=console,
+        )
+        default_allocation_range_end = self.variables["external_network"]["end"] or str(
+            external_network_hosts[-1]
         )
         self.variables["external_network"]["end"] = Prompt.ask(
             "End of IP allocation range for external network",
-            default=self.variables["external_network"]["end"],
+            default=default_allocation_range_end,
             console=console,
         )
         self.variables["external_network"]["physical_network"] = Prompt.ask(
