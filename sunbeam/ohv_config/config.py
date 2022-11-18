@@ -16,7 +16,7 @@
 import typing
 from typing import Optional
 
-from pydantic import AnyUrl, BaseModel, Field, IPvAnyAddress, IPvAnyNetwork
+from pydantic import AnyUrl, BaseModel, Field, IPvAnyAddress, IPvAnyInterface
 
 from sunbeam.ohv_config import service
 
@@ -73,8 +73,8 @@ class NetworkConfig(BaseModel):
 
     physnet_name: str = Field(alias="physnet-name", default="physnet1")
     external_bridge: str = Field(alias="external-bridge", default="br-ex")
-    external_network_cidr: Optional[IPvAnyNetwork] = Field(
-        alias="external-network-cidr"
+    external_bridge_address: Optional[IPvAnyInterface] = Field(
+        alias="external-bridge-address"
     )
     dns_domain = Field(alias="dns-domain", default="openstack.local")
     dns_servers: IPvAnyAddress = Field(alias="dns-servers", default="8.8.8.8")

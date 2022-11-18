@@ -14,11 +14,14 @@
 # limitations under the License.
 
 import asyncio
+import ipaddress
 import json
 import logging
 import operator
 from pathlib import Path
 from typing import Optional
+
+from rich.prompt import Confirm
 
 from sunbeam import utils
 from sunbeam.commands.juju import JujuHelper
@@ -330,6 +333,8 @@ class UpdateNetworkConfigStep(OHVBaseStep):
 class UpdateExternalNetworkConfigStep(OHVBaseStep):
     """Update External Network Config for openstack-hypervisor snap"""
 
+    IPVANYNETWORK_UNSET = "0.0.0.0/0"
+
     def __init__(self, ext_network: Path):
         super().__init__(
             "Update Network Config",
@@ -342,33 +347,43 @@ class UpdateExternalNetworkConfigStep(OHVBaseStep):
 
         self.ohv_client = ohvClient()
 
-    def is_skip(self, status: Optional["Status"] = None):
-        """Determines if the step should be skipped or not.
+    def has_prompts(self) -> bool:
+        return True
 
-        :return: True if the Step should be skipped, False otherwise
+    def prompt(self, console: Optional["Console"] = None) -> None:
+        """Prompt the user for local hypervisor externalnetworking.
+
+        Prompts the user for required information for configuration of the
+        local node with host only access to instances.
+
+        :param console: the console to prompt on
+        :type console: rich.console.Console (Optional)
         """
-        skip = True
-
         # Get configuration from openstack-hypervisor snap
         self.config = self.ohv_client.config.get_network_config()
         LOG.debug(f"Config from openstack-hypervisor snap: {self.config}")
 
+        # Read previously collected information about external network subnet
         with open(self.ext_network_file, "r") as fp:
             self.ext_network = json.load(fp).get("external_network", {})
 
-        # Mapping of config names as seen by snap and from tf file
-        config_name_map = [
-            ("physnet_name", "physical_network"),
-            ("external_network_cidr", "cidr"),
-        ]
-        for attrib in config_name_map:
-            value_from_snap = vars(self.config).get(attrib[0])
-            value_from_file = self.ext_network.get(attrib[1], None)
-            if not operator.eq(value_from_snap, value_from_file):
-                setattr(self.config, attrib[0], value_from_file)
-                skip = False
+        enable_host_only_networking = Confirm.ask(
+            "Enable access to floating IP's from local host only",
+            default=(
+                str(self.config.external_bridge_address) != self.IPVANYNETWORK_UNSET
+            ),
+            console=console,
+        )
+        if enable_host_only_networking:
+            external_network = ipaddress.ip_network(self.ext_network.get("cidr"))
+            bridge_interface = (
+                f"{self.ext_network.get('gateway')}/{external_network.prefixlen}"
+            )
+            self.config.external_bridge_address = bridge_interface
+        else:
+            self.config.external_bridge_address = self.IPVANYNETWORK_UNSET
 
-        return skip
+        self.config.physnet_name = self.ext_network.get("physical_network")
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
