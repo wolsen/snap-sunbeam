@@ -9,6 +9,9 @@ version: xena
 confinement: strict
 grade: devel
 
+architectures:
+  - build-on: amd64
+
 layout:
   /usr/share/terraform/plugins:
     symlink: $SNAP_DATA/terraform-plugins
