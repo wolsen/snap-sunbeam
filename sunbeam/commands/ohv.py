@@ -451,3 +451,39 @@ class UpdateNodeConfigStep(OHVBaseStep):
             return Result(ResultType.FAILED, str(e))
 
         return Result(ResultType.COMPLETED)
+
+
+class ResetConfigStep(OHVBaseStep):
+    """Rest Config for openstack-hypervisor snap"""
+
+    def __init__(self):
+        super().__init__(
+            "Resetting hypervisor ",
+            "Resetting openstack-hypervisor configuration to defaults",
+        )
+
+        self.ohv_client = ohvClient()
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return False
+
+    def run(self, status: Optional["Status"] = None) -> Result:
+        """Run the step to completion.
+
+        Invoked when the step is run and returns a ResultType to indicate
+
+        :return:
+        """
+        try:
+            LOG.warning("Reset config on openstack-hypervisor snap")
+            result = self.ohv_client.config.reset_config()
+            LOG.warning(f"Result after reset {result}")
+        except Exception as e:
+            LOG.exception("Error resetting config for openstack-hypervisor")
+            return Result(ResultType.FAILED, str(e))
+
+        return Result(ResultType.COMPLETED)
