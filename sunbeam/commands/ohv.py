@@ -479,11 +479,11 @@ class ResetConfigStep(OHVBaseStep):
         :return:
         """
         try:
-            LOG.warning("Reset config on openstack-hypervisor snap")
+            LOG.debug("Reseting configuration on openstack-hypervisor snap")
             result = self.ohv_client.config.reset_config()
-            LOG.warning(f"Result after reset {result}")
+            LOG.debug(f"Result after reset {result}")
         except Exception as e:
-            LOG.exception("Error resetting config for openstack-hypervisor")
+            LOG.exception("Error resetting configuration for openstack-hypervisor")
             return Result(ResultType.FAILED, str(e))
 
         return Result(ResultType.COMPLETED)
