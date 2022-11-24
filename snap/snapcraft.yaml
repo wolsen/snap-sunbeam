@@ -21,7 +21,7 @@ apps:
     command: bin/microstack
     plugs:
       - dot-local-share-juju
-      - dot-kubernetes
+      - dot-kube
       - home
       - network
       - network-bind
@@ -100,7 +100,7 @@ plugs:
     write:
       - $HOME/.local/share/juju
 
-  dot-kubernetes:
+  dot-kube:
     interface: personal-files
     read:
       - $HOME/.kube
