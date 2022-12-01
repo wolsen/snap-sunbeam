@@ -37,53 +37,55 @@ console = Console()
 snap = Snap()
 
 
-user_questions = {
-    "username": question_helper.PromptQuestion(
-        "Username to use for access to OpenStack", default_value="demo"
-    ),
-    "password": question_helper.PromptQuestion(
-        "Password to use for access to OpenStack",
-        default_function=question_helper.generate_password,
-    ),
-    "cidr": question_helper.PromptQuestion(
-        "Network range to use for project network", default_value="192.168.122.0/24"
-    ),
-    "security_group_rules": question_helper.ConfirmQuestion(
-        "Setup security group rules for SSH and ICMP ingress", default_value=True
-    ),
-}
+def user_questions():
+    return {
+        "username": question_helper.PromptQuestion(
+            "Username to use for access to OpenStack", default_value="demo"
+        ),
+        "password": question_helper.PromptQuestion(
+            "Password to use for access to OpenStack",
+            default_function=question_helper.generate_password,
+        ),
+        "cidr": question_helper.PromptQuestion(
+            "Network range to use for project network", default_value="192.168.122.0/24"
+        ),
+        "security_group_rules": question_helper.ConfirmQuestion(
+            "Setup security group rules for SSH and ICMP ingress", default_value=True
+        ),
+    }
 
 
-ext_net_questions = {
-    "cidr": question_helper.PromptQuestion(
-        "CIDR of network to use for external networking",
-        default_value="10.20.20.0/24",
-    ),
-    "gateway": question_helper.PromptQuestion(
-        "IP address of gateway for external network", default_value=None
-    ),
-    "start": question_helper.PromptQuestion(
-        "Start of IP allocation range for external network", default_value=None
-    ),
-    "end": question_helper.PromptQuestion(
-        "End of IP allocation range for external network", default_value=None
-    ),
-    "physical_network": question_helper.PromptQuestion(
-        "Neutron label for physical network to map to external network",
-        default_value="physnet1",
-    ),
-    "network_type": question_helper.PromptQuestion(
-        "Network type for access to external network",
-        choices=["flat", "vlan"],
-        default_value="flat",
-    ),
-    "segmentation_id": question_helper.PromptQuestion(
-        "VLAN ID to use for external network", default_value=0
-    ),
-    "enable_host_only_networking": question_helper.ConfirmQuestion(
-        "Enable access to floating IP's from local host only", default_value=True
-    ),
-}
+def ext_net_questions():
+    return {
+        "cidr": question_helper.PromptQuestion(
+            "CIDR of network to use for external networking",
+            default_value="10.20.20.0/24",
+        ),
+        "gateway": question_helper.PromptQuestion(
+            "IP address of gateway for external network", default_value=None
+        ),
+        "start": question_helper.PromptQuestion(
+            "Start of IP allocation range for external network", default_value=None
+        ),
+        "end": question_helper.PromptQuestion(
+            "End of IP allocation range for external network", default_value=None
+        ),
+        "physical_network": question_helper.PromptQuestion(
+            "Neutron label for physical network to map to external network",
+            default_value="physnet1",
+        ),
+        "network_type": question_helper.PromptQuestion(
+            "Network type for access to external network",
+            choices=["flat", "vlan"],
+            default_value="flat",
+        ),
+        "segmentation_id": question_helper.PromptQuestion(
+            "VLAN ID to use for external network", default_value=0
+        ),
+        "enable_host_only_networking": question_helper.ConfirmQuestion(
+            "Enable access to floating IP's from local host only", default_value=True
+        ),
+    }
 
 
 VARIABLE_DEFAULTS = {
@@ -270,7 +272,7 @@ class ConfigureCloudStep(BaseStep):
         else:
             preseed = {}
         user_bank = question_helper.QuestionBank(
-            questions=user_questions,
+            questions=user_questions(),
             console=console,
             preseed=preseed.get("user"),
             previous_answers=self.variables.get("user"),
@@ -285,7 +287,7 @@ class ConfigureCloudStep(BaseStep):
 
         # External Network Configuration
         ext_net_bank = question_helper.QuestionBank(
-            questions=ext_net_questions,
+            questions=ext_net_questions(),
             console=console,
             preseed=preseed.get("external_network"),
             previous_answers=self.variables.get("external_network"),
