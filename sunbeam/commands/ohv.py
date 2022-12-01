@@ -21,12 +21,11 @@ import operator
 from pathlib import Path
 from typing import Optional
 
-from rich.prompt import Confirm
-
 from sunbeam import utils
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.jobs.common import BaseStep, InstallSnapStep, Result, ResultType
 from sunbeam.ohv_config.client import Client as ohvClient
+import sunbeam.commands.question_helper as question_helper
 
 LOG = logging.getLogger(__name__)
 
@@ -367,13 +366,18 @@ class UpdateExternalNetworkConfigStep(OHVBaseStep):
         with open(self.ext_network_file, "r") as fp:
             self.ext_network = json.load(fp).get("external_network", {})
 
-        enable_host_only_networking = Confirm.ask(
-            "Enable access to floating IP's from local host only",
-            default=(
+        answers = question_helper.load_answers()
+        try:
+            enable_host_only_networking = answers["external_network"][
+                "enable_host_only_networking"
+            ]
+        except KeyError:
+            LOG.warning(
+                "Failed to find external_network.enable_host_only_networking answer"
+            )
+            enable_host_only_networking = (
                 str(self.config.external_bridge_address) != self.IPVANYNETWORK_UNSET
-            ),
-            console=console,
-        )
+            )
         if enable_host_only_networking:
             external_network = ipaddress.ip_network(self.ext_network.get("cidr"))
             bridge_interface = (
