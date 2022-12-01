@@ -39,21 +39,20 @@ def mock_password_generator():
     return "password"
 
 
-class UserQuestions(question_helper.QuestionBank):
-
-    questions = {
-        "username": MockQuestion(
-            "Username to use for access to OpenStack", default_value="demo"
-        ),
-        "password": MockQuestion(
-            "Password for user", default_function=mock_password_generator
-        ),
-    }
+questions = {
+    "username": MockQuestion(
+        "Username to use for access to OpenStack", default_value="demo"
+    ),
+    "password": MockQuestion(
+        "Password for user", default_function=mock_password_generator
+    ),
+}
 
 
 class TestQuestionHelpers(unittest.TestCase):
     def test_quesion(self):
-        user_questions = UserQuestions(
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
             console=None,
             preseed={},
             previous_answers={},
@@ -61,7 +60,8 @@ class TestQuestionHelpers(unittest.TestCase):
         self.assertEqual(user_questions.username.ask(), "demo")
 
     def test_quesion_preseed(self):
-        user_questions = UserQuestions(
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
             console=None,
             preseed={"username": "preseed_user"},
             previous_answers={},
@@ -69,17 +69,23 @@ class TestQuestionHelpers(unittest.TestCase):
         self.assertEqual(user_questions.username.ask(), "preseed_user")
 
     def test_quesion_previous(self):
-        user_questions = UserQuestions(
-            console=None, preseed={}, previous_answers={"username": "previous_user"}
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
+            console=None,
+            preseed={},
+            previous_answers={"username": "previous_user"},
         )
         self.assertEqual(user_questions.username.ask(), "previous_user")
 
     def test_quesion_new_default(self):
-        user_questions = UserQuestions(console=None, preseed={}, previous_answers={})
+        user_questions = question_helper.QuestionBank(
+            questions=questions, console=None, preseed={}, previous_answers={}
+        )
         self.assertEqual(user_questions.username.ask("special_user"), "special_user")
 
     def test_quesion_preseed_previous(self):
-        user_questions = UserQuestions(
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
             console=None,
             preseed={"username": "preseed_user"},
             previous_answers={"username": "previous_user"},
@@ -87,7 +93,8 @@ class TestQuestionHelpers(unittest.TestCase):
         self.assertEqual(user_questions.username.ask(), "preseed_user")
 
     def test_quesion_preseed_new_default(self):
-        user_questions = UserQuestions(
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
             console=None,
             preseed={"username": "preseed_user"},
             previous_answers={},
@@ -95,13 +102,17 @@ class TestQuestionHelpers(unittest.TestCase):
         self.assertEqual(user_questions.username.ask("special_user"), "preseed_user")
 
     def test_quesion_previous_new_default(self):
-        user_questions = UserQuestions(
-            console=None, preseed={}, previous_answers={"username": "previous_user"}
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
+            console=None,
+            preseed={},
+            previous_answers={"username": "previous_user"},
         )
         self.assertEqual(user_questions.username.ask("special_user"), "previous_user")
 
     def test_default_function(self):
-        user_questions = UserQuestions(
+        user_questions = question_helper.QuestionBank(
+            questions=questions,
             console=None,
             preseed={},
             previous_answers={},

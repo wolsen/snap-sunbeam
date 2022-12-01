@@ -37,57 +37,53 @@ console = Console()
 snap = Snap()
 
 
-class UserQuestions(question_helper.QuestionBank):
-
-    questions = {
-        "username": question_helper.PromptQuestion(
-            "Username to use for access to OpenStack", default_value="demo"
-        ),
-        "password": question_helper.PromptQuestion(
-            "Password to use for access to OpenStack",
-            default_function=question_helper.generate_password,
-        ),
-        "cidr": question_helper.PromptQuestion(
-            "Network range to use for project network", default_value="192.168.122.0/24"
-        ),
-        "security_group_rules": question_helper.ConfirmQuestion(
-            "Setup security group rules for SSH and ICMP ingress", default_value=True
-        ),
-    }
+user_questions = {
+    "username": question_helper.PromptQuestion(
+        "Username to use for access to OpenStack", default_value="demo"
+    ),
+    "password": question_helper.PromptQuestion(
+        "Password to use for access to OpenStack",
+        default_function=question_helper.generate_password,
+    ),
+    "cidr": question_helper.PromptQuestion(
+        "Network range to use for project network", default_value="192.168.122.0/24"
+    ),
+    "security_group_rules": question_helper.ConfirmQuestion(
+        "Setup security group rules for SSH and ICMP ingress", default_value=True
+    ),
+}
 
 
-class ExternalNetworkQuestions(question_helper.QuestionBank):
-
-    questions = {
-        "cidr": question_helper.PromptQuestion(
-            "CIDR of network to use for external networking",
-            default_value="10.20.20.0/24",
-        ),
-        "gateway": question_helper.PromptQuestion(
-            "IP address of gateway for external network", default_value=None
-        ),
-        "start": question_helper.PromptQuestion(
-            "Start of IP allocation range for external network", default_value=None
-        ),
-        "end": question_helper.PromptQuestion(
-            "End of IP allocation range for external network", default_value=None
-        ),
-        "physical_network": question_helper.PromptQuestion(
-            "Neutron label for physical network to map to external network",
-            default_value="physnet1",
-        ),
-        "network_type": question_helper.PromptQuestion(
-            "Network type for access to external network",
-            choices=["flat", "vlan"],
-            default_value="flat",
-        ),
-        "segmentation_id": question_helper.PromptQuestion(
-            "VLAN ID to use for external network", default_value=0
-        ),
-        "enable_host_only_networking": question_helper.ConfirmQuestion(
-            "Enable access to floating IP's from local host only", default_value=True
-        ),
-    }
+ext_net_questions = {
+    "cidr": question_helper.PromptQuestion(
+        "CIDR of network to use for external networking",
+        default_value="10.20.20.0/24",
+    ),
+    "gateway": question_helper.PromptQuestion(
+        "IP address of gateway for external network", default_value=None
+    ),
+    "start": question_helper.PromptQuestion(
+        "Start of IP allocation range for external network", default_value=None
+    ),
+    "end": question_helper.PromptQuestion(
+        "End of IP allocation range for external network", default_value=None
+    ),
+    "physical_network": question_helper.PromptQuestion(
+        "Neutron label for physical network to map to external network",
+        default_value="physnet1",
+    ),
+    "network_type": question_helper.PromptQuestion(
+        "Network type for access to external network",
+        choices=["flat", "vlan"],
+        default_value="flat",
+    ),
+    "segmentation_id": question_helper.PromptQuestion(
+        "VLAN ID to use for external network", default_value=0
+    ),
+    "enable_host_only_networking": question_helper.ConfirmQuestion(
+        "Enable access to floating IP's from local host only", default_value=True
+    ),
+}
 
 
 VARIABLE_DEFAULTS = {
@@ -273,26 +269,28 @@ class ConfigureCloudStep(BaseStep):
             preseed = question_helper.read_preseed(self.preseed_file)
         else:
             preseed = {}
-        user_questions = UserQuestions(
+        user_bank = question_helper.QuestionBank(
+            questions=user_questions,
             console=console,
             preseed=preseed.get("user"),
             previous_answers=self.variables.get("user"),
         )
         # User configuration
-        self.variables["user"]["username"] = user_questions.username.ask()
-        self.variables["user"]["password"] = user_questions.password.ask()
-        self.variables["user"]["cidr"] = user_questions.cidr.ask()
+        self.variables["user"]["username"] = user_bank.username.ask()
+        self.variables["user"]["password"] = user_bank.password.ask()
+        self.variables["user"]["cidr"] = user_bank.cidr.ask()
         self.variables["user"][
             "security_group_rules"
-        ] = user_questions.security_group_rules.ask()
+        ] = user_bank.security_group_rules.ask()
 
         # External Network Configuration
-        ext_net_questions = ExternalNetworkQuestions(
+        ext_net_bank = question_helper.QuestionBank(
+            questions=ext_net_questions,
             console=console,
             preseed=preseed.get("external_network"),
             previous_answers=self.variables.get("external_network"),
         )
-        self.variables["external_network"]["cidr"] = ext_net_questions.cidr.ask()
+        self.variables["external_network"]["cidr"] = ext_net_bank.cidr.ask()
         external_network = ipaddress.ip_network(
             self.variables["external_network"]["cidr"]
         )
@@ -300,38 +298,38 @@ class ConfigureCloudStep(BaseStep):
         default_gateway = self.variables["external_network"].get("gateway") or str(
             external_network_hosts[0]
         )
-        self.variables["external_network"]["gateway"] = ext_net_questions.gateway.ask(
+        self.variables["external_network"]["gateway"] = ext_net_bank.gateway.ask(
             new_default=default_gateway
         )
         default_allocation_range_start = self.variables["external_network"].get(
             "start"
         ) or str(external_network_hosts[1])
-        self.variables["external_network"]["start"] = ext_net_questions.start.ask(
+        self.variables["external_network"]["start"] = ext_net_bank.start.ask(
             new_default=default_allocation_range_start
         )
         default_allocation_range_end = self.variables["external_network"].get(
             "end"
         ) or str(external_network_hosts[-1])
-        self.variables["external_network"]["end"] = ext_net_questions.end.ask(
+        self.variables["external_network"]["end"] = ext_net_bank.end.ask(
             new_default=default_allocation_range_end
         )
         self.variables["external_network"][
             "physical_network"
-        ] = ext_net_questions.physical_network.ask()
+        ] = ext_net_bank.physical_network.ask()
 
         self.variables["external_network"][
             "network_type"
-        ] = ext_net_questions.network_type.ask()
+        ] = ext_net_bank.network_type.ask()
         if self.variables["external_network"]["network_type"] == "vlan":
             self.variables["external_network"][
                 "segmentation_id"
-            ] = ext_net_questions.segmentation_id.ask()
+            ] = ext_net_bank.segmentation_id.ask()
         else:
             self.variables["external_network"]["segmentation_id"] = 0
 
         self.variables["external_network"][
             "enable_host_only_networking"
-        ] = ext_net_questions.enable_host_only_networking.ask()
+        ] = ext_net_bank.enable_host_only_networking.ask()
         LOG.debug(self.variables)
         question_helper.write_answers(self.variables)
 

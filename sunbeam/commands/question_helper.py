@@ -144,17 +144,20 @@ class QuestionBank:
 
     def __init__(
         self,
+        questions: dict,
         console: Console,
         preseed: dict = None,
         previous_answers: dict = None,
     ):
         """Apply preseed and previous answers to questions in bank.
 
-        :param console: ~the console to prompt on
+        :param questions: dictionary of questions
+        :param console: the console to prompt on
         :param preseed: dict of answers to questions.
         :param previous_answers: Previous answers to the questions in the
                                  bank.
         """
+        self.questions = questions
         self.preseed = preseed or {}
         self.previous_answers = previous_answers or {}
         for key in self.questions.keys():
