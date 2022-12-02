@@ -238,11 +238,14 @@ class InitializeTerraformStep(BaseStep):
 class ConfigureCloudStep(BaseStep):
     """Default cloud configuration for all-in-one install."""
 
-    def __init__(self, credentials: dict, preseed_file: str = None):
+    def __init__(
+        self, credentials: dict, preseed_file: str = None, accept_defaults: bool = False
+    ):
         super().__init__(
             "Configure OpenStack cloud", "Configuring OpenStack cloud for use"
         )
         self.admin_credentials = credentials
+        self.accept_defaults = accept_defaults
         self.preseed_file = preseed_file
         self.variables = question_helper.load_answers()
         for section in ["user", "external_network"]:
@@ -276,6 +279,7 @@ class ConfigureCloudStep(BaseStep):
             console=console,
             preseed=preseed.get("user"),
             previous_answers=self.variables.get("user"),
+            accept_defaults=self.accept_defaults,
         )
         # User configuration
         self.variables["user"]["username"] = user_bank.username.ask()
@@ -291,6 +295,7 @@ class ConfigureCloudStep(BaseStep):
             console=console,
             preseed=preseed.get("external_network"),
             previous_answers=self.variables.get("external_network"),
+            accept_defaults=self.accept_defaults,
         )
         self.variables["external_network"]["cidr"] = ext_net_bank.cidr.ask()
         external_network = ipaddress.ip_network(
@@ -370,9 +375,12 @@ class ConfigureCloudStep(BaseStep):
 
 
 @click.command()
+@click.option("-a", "--accept-defaults", help="Accept all defaults.", is_flag=True)
 @click.option("-p", "--preseed", help="Preseed file.")
 @click.option("-o", "--openrc", help="Output file for cloud access details.")
-def configure(openrc: str = None, preseed: str = None) -> None:
+def configure(
+    openrc: str = None, preseed: str = None, accept_defaults: bool = False
+) -> None:
     """Configure cloud with some sane defaults."""
     # NOTE: install to user writable location
     src = snap.paths.snap / "etc" / "configure"
@@ -389,7 +397,11 @@ def configure(openrc: str = None, preseed: str = None) -> None:
 
     plan = [
         InitializeTerraformStep(),
-        ConfigureCloudStep(credentials=admin_credentials, preseed_file=preseed),
+        ConfigureCloudStep(
+            credentials=admin_credentials,
+            preseed_file=preseed,
+            accept_defaults=accept_defaults,
+        ),
         UserOpenRCStep(
             auth_url=admin_credentials["OS_AUTH_URL"],
             auth_version=admin_credentials["OS_AUTH_VERSION"],

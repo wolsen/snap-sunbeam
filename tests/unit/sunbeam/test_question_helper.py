@@ -27,12 +27,24 @@ def MockPrompt(question, default=None, console=None, choices=None):
     return default
 
 
+def MockFixedPrompt(question, default=None, console=None, choices=None):
+    return "not what you're looking for"
+
+
 class MockQuestion(question_helper.Question):
     """Ask the user a question."""
 
     @property
     def question_function(self):
         return MockPrompt
+
+
+class MockQuestionFixed(question_helper.Question):
+    """Ask the user a question."""
+
+    @property
+    def question_function(self):
+        return MockFixedPrompt
 
 
 def mock_password_generator():
@@ -47,6 +59,7 @@ def test_questions():
         "password": MockQuestion(
             "Password for user", default_function=mock_password_generator
         ),
+        "foo": MockQuestionFixed("A question", default_value="foobar"),
     }
 
 
@@ -77,6 +90,16 @@ class TestQuestionHelpers(unittest.TestCase):
             previous_answers={"username": "previous_user"},
         )
         self.assertEqual(user_questions.username.ask(), "previous_user")
+
+    def test_question_previous_accept_defaults(self):
+        user_questions = question_helper.QuestionBank(
+            questions=test_questions(),
+            console=None,
+            preseed={},
+            previous_answers={},
+            accept_defaults=True,
+        )
+        self.assertEqual(user_questions.foo.ask(), "foobar")
 
     def test_question_new_default(self):
         user_questions = question_helper.QuestionBank(

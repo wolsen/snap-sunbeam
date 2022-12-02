@@ -39,6 +39,7 @@ class Question:
         self.default_function = default_function
         self.default_value = default_value
         self.choices = choices
+        self.accept_defaults = False
 
     @property
     def question_function(self):
@@ -81,12 +82,16 @@ class Question:
         if self.preseed:
             self.answer = self.preseed
         else:
-            self.answer = self.question_function(
-                self.question,
-                default=self.calculate_default(new_default=new_default),
-                console=self.console,
-                choices=self.choices,
-            )
+            default = self.calculate_default(new_default=new_default)
+            if self.accept_defaults:
+                self.answer = default
+            else:
+                self.answer = self.question_function(
+                    self.question,
+                    default=default,
+                    console=self.console,
+                    choices=self.choices,
+                )
         return self.answer
 
 
@@ -148,6 +153,7 @@ class QuestionBank:
         console: Console,
         preseed: dict = None,
         previous_answers: dict = None,
+        accept_defaults: bool = False,
     ):
         """Apply preseed and previous answers to questions in bank.
 
@@ -162,6 +168,7 @@ class QuestionBank:
         self.previous_answers = previous_answers or {}
         for key in self.questions.keys():
             self.questions[key].console = console
+            self.questions[key].accept_defaults = accept_defaults
         for key, value in self.preseed.items():
             if self.questions.get(key) is not None:
                 self.questions[key].preseed = value
