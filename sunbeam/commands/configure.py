@@ -24,18 +24,68 @@ from datetime import datetime
 from typing import Optional
 
 import click
-import pwgen
 from rich.console import Console
-from rich.prompt import Confirm, Prompt
 from snaphelpers import Snap
 
 from sunbeam.commands.juju import JujuHelper
 from sunbeam.commands.ohv import UpdateExternalNetworkConfigStep
 from sunbeam.jobs.common import BaseStep, Result, ResultType, Status
+import sunbeam.commands.question_helper as question_helper
 
 LOG = logging.getLogger(__name__)
 console = Console()
 snap = Snap()
+
+
+def user_questions():
+    return {
+        "username": question_helper.PromptQuestion(
+            "Username to use for access to OpenStack", default_value="demo"
+        ),
+        "password": question_helper.PromptQuestion(
+            "Password to use for access to OpenStack",
+            default_function=question_helper.generate_password,
+        ),
+        "cidr": question_helper.PromptQuestion(
+            "Network range to use for project network", default_value="192.168.122.0/24"
+        ),
+        "security_group_rules": question_helper.ConfirmQuestion(
+            "Setup security group rules for SSH and ICMP ingress", default_value=True
+        ),
+    }
+
+
+def ext_net_questions():
+    return {
+        "cidr": question_helper.PromptQuestion(
+            "CIDR of network to use for external networking",
+            default_value="10.20.20.0/24",
+        ),
+        "gateway": question_helper.PromptQuestion(
+            "IP address of gateway for external network", default_value=None
+        ),
+        "start": question_helper.PromptQuestion(
+            "Start of IP allocation range for external network", default_value=None
+        ),
+        "end": question_helper.PromptQuestion(
+            "End of IP allocation range for external network", default_value=None
+        ),
+        "physical_network": question_helper.PromptQuestion(
+            "Neutron label for physical network to map to external network",
+            default_value="physnet1",
+        ),
+        "network_type": question_helper.PromptQuestion(
+            "Network type for access to external network",
+            choices=["flat", "vlan"],
+            default_value="flat",
+        ),
+        "segmentation_id": question_helper.PromptQuestion(
+            "VLAN ID to use for external network", default_value=0
+        ),
+        "enable_host_only_networking": question_helper.ConfirmQuestion(
+            "Enable access to floating IP's from local host only", default_value=True
+        ),
+    }
 
 
 VARIABLE_DEFAULTS = {
@@ -188,18 +238,16 @@ class InitializeTerraformStep(BaseStep):
 class ConfigureCloudStep(BaseStep):
     """Default cloud configuration for all-in-one install."""
 
-    def __init__(self, credentials: dict):
+    def __init__(self, credentials: dict, preseed_file: str = None):
         super().__init__(
             "Configure OpenStack cloud", "Configuring OpenStack cloud for use"
         )
         self.admin_credentials = credentials
-        self.terraform_tfvars = (
-            snap.paths.user_common / "etc" / "configure" / "terraform.tfvars.json"
-        )
-        self.variables = VARIABLE_DEFAULTS
-        if self.terraform_tfvars.exists():
-            with open(self.terraform_tfvars, "r") as tfvars:
-                self.variables.update(json.loads(tfvars.read()))
+        self.preseed_file = preseed_file
+        self.variables = question_helper.load_answers()
+        for section in ["user", "external_network"]:
+            if not self.variables.get(section):
+                self.variables[section] = {}
 
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
@@ -219,85 +267,73 @@ class ConfigureCloudStep(BaseStep):
         :param console: the console to prompt on
         :type console: rich.console.Console (Optional)
         """
+        if self.preseed_file:
+            preseed = question_helper.read_preseed(self.preseed_file)
+        else:
+            preseed = {}
+        user_bank = question_helper.QuestionBank(
+            questions=user_questions(),
+            console=console,
+            preseed=preseed.get("user"),
+            previous_answers=self.variables.get("user"),
+        )
         # User configuration
-        self.variables["user"]["username"] = Prompt.ask(
-            "Username to use for access to OpenStack",
-            default=self.variables["user"]["username"],
-            console=console,
-        )
-        self.variables["user"]["password"] = Prompt.ask(
-            "Password to use for access to OpenStack",
-            default=self.variables["user"].get("password", pwgen.pwgen(12)),
-            console=console,
-        )
-        self.variables["user"]["cidr"] = Prompt.ask(
-            "Network range to use for project network",
-            default=self.variables["user"]["cidr"],
-            console=console,
-        )
-        self.variables["user"]["security_group_rules"] = Confirm.ask(
-            "Setup security group rules for SSH and ICMP ingress",
-            default=self.variables["user"].get("security_group_rules", True),
-            console=console,
-        )
+        self.variables["user"]["username"] = user_bank.username.ask()
+        self.variables["user"]["password"] = user_bank.password.ask()
+        self.variables["user"]["cidr"] = user_bank.cidr.ask()
+        self.variables["user"][
+            "security_group_rules"
+        ] = user_bank.security_group_rules.ask()
 
         # External Network Configuration
-        self.variables["external_network"]["cidr"] = Prompt.ask(
-            "CIDR of network to use for external networking",
-            default=self.variables["external_network"]["cidr"],
+        ext_net_bank = question_helper.QuestionBank(
+            questions=ext_net_questions(),
             console=console,
+            preseed=preseed.get("external_network"),
+            previous_answers=self.variables.get("external_network"),
         )
+        self.variables["external_network"]["cidr"] = ext_net_bank.cidr.ask()
         external_network = ipaddress.ip_network(
             self.variables["external_network"]["cidr"]
         )
         external_network_hosts = list(external_network.hosts())
-        default_gateway = self.variables["external_network"]["gateway"] or str(
+        default_gateway = self.variables["external_network"].get("gateway") or str(
             external_network_hosts[0]
         )
-        self.variables["external_network"]["gateway"] = Prompt.ask(
-            "IP address of gateway for external network",
-            default=default_gateway,
-            console=console,
+        self.variables["external_network"]["gateway"] = ext_net_bank.gateway.ask(
+            new_default=default_gateway
         )
-        default_allocation_range_start = self.variables["external_network"][
+        default_allocation_range_start = self.variables["external_network"].get(
             "start"
-        ] or str(external_network_hosts[1])
-        self.variables["external_network"]["start"] = Prompt.ask(
-            "Start of IP allocation range for external network",
-            default=default_allocation_range_start,
-            console=console,
+        ) or str(external_network_hosts[1])
+        self.variables["external_network"]["start"] = ext_net_bank.start.ask(
+            new_default=default_allocation_range_start
         )
-        default_allocation_range_end = self.variables["external_network"]["end"] or str(
-            external_network_hosts[-1]
+        default_allocation_range_end = self.variables["external_network"].get(
+            "end"
+        ) or str(external_network_hosts[-1])
+        self.variables["external_network"]["end"] = ext_net_bank.end.ask(
+            new_default=default_allocation_range_end
         )
-        self.variables["external_network"]["end"] = Prompt.ask(
-            "End of IP allocation range for external network",
-            default=default_allocation_range_end,
-            console=console,
-        )
-        self.variables["external_network"]["physical_network"] = Prompt.ask(
-            "Neutron label for physical network to map to external network",
-            default=self.variables["external_network"]["physical_network"],
-            console=console,
-        )
-        self.variables["external_network"]["network_type"] = Prompt.ask(
-            "Network type for access to external network",
-            default=self.variables["external_network"]["network_type"],
-            console=console,
-            choices=["flat", "vlan"],
-        )
+        self.variables["external_network"][
+            "physical_network"
+        ] = ext_net_bank.physical_network.ask()
+
+        self.variables["external_network"][
+            "network_type"
+        ] = ext_net_bank.network_type.ask()
         if self.variables["external_network"]["network_type"] == "vlan":
-            self.variables["external_network"]["segmentation_id"] = Prompt.ask(
-                "VLAN ID to use for external network",
-                default=self.variables["external_network"]["segmentation_id"],
-                console=console,
-            )
+            self.variables["external_network"][
+                "segmentation_id"
+            ] = ext_net_bank.segmentation_id.ask()
         else:
             self.variables["external_network"]["segmentation_id"] = 0
 
-        with open(self.terraform_tfvars, "w") as tfvars:
-            os.fchmod(tfvars.fileno(), mode=0o640)
-            tfvars.write(json.dumps(self.variables))
+        self.variables["external_network"][
+            "enable_host_only_networking"
+        ] = ext_net_bank.enable_host_only_networking.ask()
+        LOG.debug(self.variables)
+        question_helper.write_answers(self.variables)
 
     def run(self, status: Optional[Status]) -> Result:
         """Execute configuration using terraform."""
@@ -334,8 +370,9 @@ class ConfigureCloudStep(BaseStep):
 
 
 @click.command()
+@click.option("-p", "--preseed", help="Preseed file.")
 @click.option("-o", "--openrc", help="Output file for cloud access details.")
-def configure(openrc: str = None) -> None:
+def configure(openrc: str = None, preseed: str = None) -> None:
     """Configure cloud with some sane defaults."""
     # NOTE: install to user writable location
     src = snap.paths.snap / "etc" / "configure"
@@ -352,7 +389,7 @@ def configure(openrc: str = None) -> None:
 
     plan = [
         InitializeTerraformStep(),
-        ConfigureCloudStep(credentials=admin_credentials),
+        ConfigureCloudStep(credentials=admin_credentials, preseed_file=preseed),
         UserOpenRCStep(
             auth_url=admin_credentials["OS_AUTH_URL"],
             auth_version=admin_credentials["OS_AUTH_VERSION"],
