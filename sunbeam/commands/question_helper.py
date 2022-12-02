@@ -163,10 +163,10 @@ class QuestionBank:
         for key in self.questions.keys():
             self.questions[key].console = console
         for key, value in self.preseed.items():
-            if self.questions.get(key):
+            if self.questions.get(key) is not None:
                 self.questions[key].preseed = value
         for key, value in self.previous_answers.items():
-            if self.previous_answers.get(key):
+            if self.previous_answers.get(key) is not None:
                 self.questions[key].previous_answer = value
 
     def __getattr__(self, attr):
