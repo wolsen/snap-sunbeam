@@ -69,6 +69,16 @@ class JujuHelper:
             LOG.info(f"Error in getting models: {str(e)}")
             return []
 
+    async def get_model_status_full(self, model: str, timeout: int) -> dict:
+        """Get juju status for the model"""
+        if not self.controller:
+            self.controller = Controller()
+            await self.controller.connect()
+
+        model = await self.controller.get_model(model)
+        status = await model.get_status()
+        return status
+
     async def get_model_status(self, model: str, timeout: int) -> dict:
         """Get juju status for the model"""
         apps_status = {}
@@ -214,15 +224,7 @@ class EnsureJujuInstalled(InstallSnapStep):
         return channel.split("/")[0].startswith("2.9")
 
 
-class BootstrapJujuStep(BaseStep):
-    """Bootstraps the Juju controller."""
-
-    def __init__(self, cloud):
-        super().__init__("Bootstrap Juju", "Bootstrapping Juju into microk8s")
-
-        self.controller_name = None
-        self.cloud = cloud
-
+class JujuStepHelper:
     def _get_juju_binary(self) -> str:
         """Get juju binary path."""
         snap = Snap()
@@ -258,6 +260,26 @@ class BootstrapJujuStep(BaseStep):
         )
 
         return json.loads(process.stdout.strip())
+
+    def check_model_present(self, model_name):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        LOG.debug("Retrieving model information from Juju")
+        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
+        LOG.debug(f"Juju models: {models}")
+        return model_name in models
+
+
+class BootstrapJujuStep(BaseStep, JujuStepHelper):
+    """Bootstraps the Juju controller."""
+
+    def __init__(self, cloud):
+        super().__init__("Bootstrap Juju", "Bootstrapping Juju into microk8s")
+
+        self.controller_name = None
+        self.cloud = cloud
 
     def is_skip(self, status: Optional["Status"] = None):
         """Determines if the step should be skipped or not.
@@ -370,7 +392,7 @@ class BootstrapJujuStep(BaseStep):
             return Result(ResultType.FAILED, str(e))
 
 
-class CreateModelStep(BaseStep):
+class CreateModelStep(BaseStep, JujuStepHelper):
     """Creates the specified model name."""
 
     def __init__(self, jhelper: JujuHelper, model: str):
@@ -383,16 +405,7 @@ class CreateModelStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Retrieving model information from Juju")
-        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"Juju models: {models}")
-
-        if self.model in models:
-            return True
-
-        # TODO(wolsen) how to tell which substrate the controller is
-        #  capable of?
-        return False
+        return self.check_model_present(self.model)
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
@@ -468,7 +481,7 @@ class DeployBundleStep(BaseStep):
             return Result(ResultType.FAILED, f"Error deploying bundle {self.name}")
 
 
-class DestroyModelStep(BaseStep):
+class DestroyModelStep(BaseStep, JujuStepHelper):
     """Destroys the specified model name."""
 
     def __init__(self, jhelper: JujuHelper, model: str):
@@ -483,15 +496,7 @@ class DestroyModelStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Retrieving model information from Juju")
-        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"Juju models: {models}")
-
-        LOG.debug(self.model)
-        if self.model in models:
-            return False
-
-        return True
+        return not self.check_model_present(self.model)
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
@@ -510,7 +515,7 @@ class DestroyModelStep(BaseStep):
             return Result(ResultType.FAILED, "Error destroying model")
 
 
-class ModelStatusStep(BaseStep):
+class ModelStatusStep(BaseStep, JujuStepHelper):
     """Get the status of the specified model name."""
 
     def __init__(
@@ -534,14 +539,7 @@ class ModelStatusStep(BaseStep):
 
         :return: True if the Step should be skipped, False otherwise
         """
-        LOG.debug("Retrieving model information from Juju")
-        models = asyncio.get_event_loop().run_until_complete(self.jhelper.get_models())
-        LOG.debug(f"Juju models: {models}")
-
-        if self.model in models:
-            return False
-
-        return True
+        return not self.check_model_present(self.model)
 
     def run(self, status: Optional["Status"] = None) -> Result:
         """Run the step to completion.
@@ -564,3 +562,90 @@ class ModelStatusStep(BaseStep):
         except Exception as e:  # noqa
             LOG.exception("Error getting status of model")
             return Result(ResultType.FAILED, str(e))
+
+
+class WriteModelStatusStep(BaseStep, JujuStepHelper):
+    """Get the status of the specified model name."""
+
+    def __init__(
+        self,
+        jhelper: JujuHelper,
+        model: str,
+        file_path: str,
+        timeout: Optional[int] = None,
+    ):
+        super().__init__("Write Model status", f"Record status of model {model}")
+
+        self.jhelper = jhelper
+        self.model = model
+        self.file_path = file_path
+        self.timeout = timeout or 0
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return not self.check_model_present(self.model)
+
+    def run(self, status: Optional["Status"] = None) -> Result:
+        """Run the step to completion.
+
+        Invoked when the step is run and returns a ResultType to indicate
+
+        :return:
+        """
+        try:
+            _status = asyncio.get_event_loop().run_until_complete(
+                self.jhelper.get_model_status_full(self.model, timeout=self.timeout)
+            )
+            # Running json.dump directly on the json returned by to_json
+            # results in a single line. There is probably a better way of
+            # doing this.
+            status = json.loads(_status.to_json())
+            with open(self.file_path, "w") as f:
+                json.dump(status, f, ensure_ascii=False, indent=4)
+            return Result(ResultType.COMPLETED, "Captured Model Status")
+        except Exception as e:  # noqa
+            return Result(ResultType.FAILED, str(e))
+
+
+class WriteCharmLog(BaseStep, JujuStepHelper):
+    def __init__(
+        self,
+        jhelper: JujuHelper,
+        model: str,
+        file_path: str,
+    ):
+        super().__init__(
+            "Get charm logs model", f"Getting charm logs for {model} model"
+        )
+        self.jhelper = jhelper
+        self.model = model
+        self.file_path = file_path
+
+    def is_skip(self, status: Optional["Status"] = None):
+        """Determines if the step should be skipped or not.
+
+        :return: True if the Step should be skipped, False otherwise
+        """
+        return not self.check_model_present(self.model)
+
+    def run(self):
+        try:
+            # libjuju model.debug_log is broken.
+            log = subprocess.check_output(
+                [
+                    self._get_juju_binary(),
+                    "debug-log",
+                    "--model",
+                    self.model,
+                    "--replay",
+                    "--no-tail",
+                ]
+            )
+            with open(self.file_path, "wb") as f:
+                f.write(log)
+        except subprocess.CalledProcessError as e:
+            return Result(ResultType.FAILED, str(e))
+        return Result(ResultType.COMPLETED, "Captured Charm Log")
