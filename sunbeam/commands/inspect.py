@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import asyncio
+import datetime
 import logging
 import tarfile
 import tempfile
@@ -32,14 +33,17 @@ snap = Snap()
 
 
 @click.command()
-@click.argument("output_directory")
-def crashdump(output_directory) -> None:
-    """Status of the node.
+def inspect() -> None:
+    """Inspect the microstack installation.
 
-    Print status of the cluster.
+    This script will inspect your microstack installation. It will report any
+    issue it finds, and create a tarball of logs and traces which can be
+    attached to an issue filed against the microstack project.
     """
     model = snap.config.get("control-plane.model")
-    dump_file: Path = Path(output_directory) / "microstack-logs.tar.gz"
+    time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_name = f"microstack-inspection-report-{time_stamp}.tar.gz"
+    dump_file: Path = Path(snap.paths.user_common) / file_name
     jhelper = juju.JujuHelper()
     plan = []
     with tempfile.TemporaryDirectory() as tmpdirname:

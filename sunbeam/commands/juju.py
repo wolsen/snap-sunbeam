@@ -605,7 +605,7 @@ class WriteModelStatusStep(BaseStep, JujuStepHelper):
             status = json.loads(_status.to_json())
             with open(self.file_path, "w") as f:
                 json.dump(status, f, ensure_ascii=False, indent=4)
-            return Result(ResultType.COMPLETED, "Captured Model Status")
+            return Result(ResultType.COMPLETED, "Inspecting Model Status")
         except Exception as e:  # noqa
             return Result(ResultType.FAILED, str(e))
 
@@ -648,4 +648,4 @@ class WriteCharmLog(BaseStep, JujuStepHelper):
                 f.write(log)
         except subprocess.CalledProcessError as e:
             return Result(ResultType.FAILED, str(e))
-        return Result(ResultType.COMPLETED, "Captured Charm Log")
+        return Result(ResultType.COMPLETED, "Inspecting Charm Log")
