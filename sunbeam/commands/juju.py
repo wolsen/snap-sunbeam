@@ -634,18 +634,18 @@ class WriteCharmLog(BaseStep, JujuStepHelper):
     def run(self):
         try:
             # libjuju model.debug_log is broken.
-            log = subprocess.check_output(
-                [
-                    self._get_juju_binary(),
-                    "debug-log",
-                    "--model",
-                    self.model,
-                    "--replay",
-                    "--no-tail",
-                ]
-            )
+            cmd = [
+                self._get_juju_binary(),
+                "debug-log",
+                "--model",
+                self.model,
+                "--replay",
+                "--no-tail",
+            ]
+            # Stream output directly to the file to avoid holding the entire
+            # blob of data in RAM.
             with open(self.file_path, "wb") as f:
-                f.write(log)
+                subprocess.check_call(cmd, stdout=f)
         except subprocess.CalledProcessError as e:
             return Result(ResultType.FAILED, str(e))
         return Result(ResultType.COMPLETED, "Inspecting Charm Log")
