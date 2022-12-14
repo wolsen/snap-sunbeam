@@ -20,6 +20,7 @@ import click
 from sunbeam import log
 from sunbeam.commands import bootstrap as bootstrap_cmds
 from sunbeam.commands import configure as configure_cmds
+from sunbeam.commands import inspect as inspect_cmds
 from sunbeam.commands import openrc as openrc_cmds
 from sunbeam.commands import reset as reset_cmds
 from sunbeam.commands import status as status_cmds
@@ -51,6 +52,7 @@ def main():
     cli.add_command(status_cmds.status)
     cli.add_command(openrc_cmds.openrc)
     cli.add_command(configure_cmds.configure)
+    cli.add_command(inspect_cmds.inspect)
     cli()
 
 
