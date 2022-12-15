@@ -28,6 +28,7 @@ from sunbeam.jobs.checks import (
     JujuSnapCheck,
     Microk8sSnapCheck,
     OpenStackHypervisorSnapCheck,
+    OpenStackHypervisorSnapHealth,
 )
 from sunbeam.jobs.common import ResultType
 
@@ -66,7 +67,9 @@ def bootstrap() -> None:
     if node_role.is_control_node():
         preflight_checks.extend([JujuSnapCheck(), Microk8sSnapCheck()])
     if node_role.is_compute_node():
-        preflight_checks.extend([OpenStackHypervisorSnapCheck()])
+        preflight_checks.extend(
+            [OpenStackHypervisorSnapCheck(), OpenStackHypervisorSnapHealth()]
+        )
 
     for check in preflight_checks:
         LOG.debug(f"Starting pre-flight check {check.name}")

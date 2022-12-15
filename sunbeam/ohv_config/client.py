@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 import requests_unixsocket
 
-from sunbeam.ohv_config.config import ConfigService
+from sunbeam.ohv_config.config import ConfigService, HealthService
 
 
 class Client:
@@ -33,3 +33,4 @@ class Client:
             requests_unixsocket.DEFAULT_SCHEME, requests_unixsocket.UnixAdapter()
         )
         self.config = ConfigService(self._session)
+        self.health = HealthService(self._session)

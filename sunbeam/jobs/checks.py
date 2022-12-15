@@ -15,7 +15,11 @@
 
 import logging
 
+import requests
 from snaphelpers import Snap
+import urllib3
+
+from sunbeam.ohv_config.client import Client as ohvClient
 
 LOG = logging.getLogger(__name__)
 
@@ -107,6 +111,33 @@ class OpenStackHypervisorSnapCheck(Check):
         if not ohv_content.exists():
             self.message = "openstack-hypervisor not detected: please install snap"
 
+            return False
+        return True
+
+
+class OpenStackHypervisorSnapHealth(Check):
+    """Check if openStack-hypervisor snap is healthy."""
+
+    def __init__(self):
+        super().__init__(
+            "Check health of openstack-hypervisor snap",
+            "Checking health of openstack-hypervisor",
+        )
+
+    def run(self) -> bool:
+        """Check for openstack-hypervisor content."""
+        client = ohvClient()
+        try:
+            hypervisor_health = client.health.get_health()
+        except (
+            urllib3.exceptions.ProtocolError,
+            ConnectionRefusedError,
+            requests.exceptions.ConnectionError,
+        ):
+            self.message = "Failed to communitcate with openstack-hypervisor"
+            return False
+        if not hypervisor_health.get("ready"):
+            self.message = "openstack-hypervisor reporting not ready"
             return False
 
         return True
