@@ -186,3 +186,11 @@ class ConfigService(service.BaseService):
         """Resets the hypervisor configuration."""
         result = self._post("/reset")
         return result
+
+
+class HealthService(service.BaseService):
+    """Query Hypervisor health."""
+
+    def get_health(self):
+        """Returns the health of the hypervisor snap."""
+        return self._get("/health")
