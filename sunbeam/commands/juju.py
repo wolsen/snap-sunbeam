@@ -147,7 +147,7 @@ class JujuHelper:
             LOG.error(f"Error in deploying bundle: {str(e)}")
             return False
 
-    async def destroy_model(self, model: str) -> bool:
+    async def destroy_model(self, model_name: str, wait: bool = True) -> bool:
         """Destroy the model"""
         try:
             if not self.controller:
@@ -155,9 +155,23 @@ class JujuHelper:
                 await self.controller.connect()
 
             await self.controller.destroy_models(
-                model, destroy_storage=True, force=True, max_wait=0
+                model_name, destroy_storage=True, force=True, max_wait=0
             )
 
+            if wait:
+                LOG.debug("Waiting for model to be removed")
+                # Cannot use block_until as that is a method from the
+                # model being destroyed.
+                for i in range(0, 30):
+                    models = await self.get_models()
+                    if model_name not in models:
+                        LOG.debug("Model has gone")
+                        return True
+                    else:
+                        LOG.debug("Model still present")
+                        await asyncio.sleep(10.0)
+                else:
+                    return False
             return True
         except Exception as e:
             LOG.error(f"Error in destroying model: {str(e)}")
